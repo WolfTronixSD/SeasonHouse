@@ -1,0 +1,929 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SeasonHouse Simulator</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,800&family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: a lit, decorated room on the left, the prop's real control page on the right, season switch on top. */
+:root{
+  color-scheme:dark;
+  --night:#0c0a11; --panel:#16121e; --panel2:#201a2b; --line:#342b44; --ink:#efe8f6; --mute:#a597b6;
+  --accent:#ff7a1a; --accent-ink:#1a0c00; --stop:#e3283c; --ok:#63d27a;
+  --display:"Bricolage Grotesque",ui-sans-serif,system-ui,sans-serif;
+  --body:"Atkinson Hyperlegible",ui-sans-serif,system-ui,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+}
+body{background:var(--night);color:var(--ink);font:15px/1.45 var(--body)}
+body::after{content:"";position:fixed;inset:0;pointer-events:none;background:radial-gradient(900px 420px at 15% -10%,color-mix(in srgb,var(--accent) 18%,transparent),transparent 70%)}
+*{box-sizing:border-box}
+.wrap{position:relative;z-index:1;max-width:1260px;margin:0 auto;padding-block:20px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+header.top{display:flex;flex-wrap:wrap;gap:14px 24px;align-items:end;justify-content:space-between;margin-bottom:16px}
+h1{font:800 clamp(26px,4vw,42px)/1 var(--display);margin:0;letter-spacing:-.5px;text-wrap:balance}
+h1 span{color:var(--accent);transition:color .4s}
+.sub{color:var(--mute);margin:6px 0 0;max-width:62ch}
+.seasons{display:flex;flex-wrap:wrap;gap:6px}
+.seasons button{font:700 14px var(--body);color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:8px 14px;cursor:pointer}
+.seasons button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);box-shadow:0 0 22px color-mix(in srgb,var(--accent) 50%,transparent)}
+.grid{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:18px;align-items:start}
+@media (max-width:940px){.grid{grid-template-columns:minmax(0,1fr)}}
+.stage{background:#000;border:1px solid var(--line);border-radius:16px;overflow:hidden;position:relative;box-shadow:0 20px 60px -20px #000}
+canvas{display:block;width:100%;height:auto}
+.hud{position:absolute;top:10px;left:10px;right:10px;display:flex;justify-content:space-between;gap:8px;pointer-events:none}
+.hud span{font:500 12px var(--mono);background:rgba(8,6,12,.7);border:1px solid rgba(255,255,255,.08);border-radius:999px;padding:4px 10px;color:var(--ink);backdrop-filter:blur(4px)}
+.hud b{color:var(--accent)}
+.stagebar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px 12px;background:var(--panel);border-top:1px solid var(--line)}
+.stagebar .who{font:800 16px var(--display);margin-right:auto}
+.stagebar .who small{display:block;font:400 13px var(--body);color:var(--mute)}
+button{font:inherit;color:var(--ink);background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;cursor:pointer}
+button:hover{border-color:var(--mute)}
+button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button:active{transform:translateY(1px)}
+.tog[aria-pressed="true"]{background:var(--ok);color:#052b0e;border-color:var(--ok);font-weight:700}
+.phone{background:var(--panel);border:1px solid var(--line);border-radius:24px;padding:14px;position:relative}
+.phone .url{font:500 12px var(--mono);color:var(--mute);background:#0b0910;border-radius:999px;padding:6px 12px;margin-bottom:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.phone h2{font:800 22px var(--display);margin:4px 0 2px;text-align:center;color:var(--accent)}
+#st{color:var(--mute);font-size:13px;text-align:center;min-height:1.4em}
+.sec{border:1px solid var(--line);background:#110e17;border-radius:12px;padding:12px;margin-top:10px}
+.sec h3{margin:0 0 8px;font:700 11px var(--body);letter-spacing:2px;text-transform:uppercase;color:var(--mute)}
+.btns{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px}
+.show{background:linear-gradient(160deg,var(--panel2),#14101b);font-weight:700;text-align:left}
+.show small{display:block;font-weight:400;color:var(--mute);font-size:12px;margin-top:2px}
+.show.on{outline:2px solid var(--accent);box-shadow:0 0 16px color-mix(in srgb,var(--accent) 55%,transparent)}
+#stop{width:100%;background:var(--stop);border:0;color:#fff;font:800 18px var(--display);letter-spacing:1px;padding:13px}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:6px 0}
+.row label{min-width:64px;color:var(--mute);font-size:13px}
+select,input[type=range]{flex:1;min-width:0}
+select{font:inherit;background:#0b0910;color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px}
+.pills{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.pill{font:500 12px var(--mono);padding:3px 8px;border-radius:999px;background:var(--panel2);color:var(--mute)}
+.pill.hot{color:#ffd7d7;background:#5a1520}
+.bar{height:10px;border-radius:99px;background:#0b0910;border:1px solid var(--line);overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:var(--accent)}
+.pos{font:500 12px var(--mono);color:var(--mute);margin-top:6px;font-variant-numeric:tabular-nums}
+.note{color:var(--mute);font-size:13px;margin-top:14px;max-width:72ch}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-top:18px}
+.card h3{font:800 18px var(--display);margin:0 0 4px}
+.card p{margin:4px 0;color:var(--mute);max-width:72ch}
+.card ul{margin:6px 0 0;padding-left:18px}
+.card li{margin:3px 0}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>Season<span>House</span> Simulator</h1>
+      <p class="sub">The real show scripts from the ESP32 firmware, running in a virtual room. Tap a show, or send a guest through the door to trip the motion sensor. Turn the sound on for the full effect.</p>
+    </div>
+    <div class="seasons" id="seasons" role="group" aria-label="Season"></div>
+  </header>
+
+  <div class="grid">
+    <div>
+      <div class="stage">
+        <canvas id="cv" width="800" height="600" aria-label="Simulated room with the prop on a ceiling winch"></canvas>
+        <div class="hud"><span id="score">Scared <b>0</b> · Laughed <b>0</b></span><span id="nowplaying">♪ quiet</span></div>
+        <div class="stagebar">
+          <div class="who" id="who">Corner Spider<small>Halloween</small></div>
+          <button id="guest">Send a guest in</button>
+          <button id="snd" class="tog" aria-pressed="false">Sound off</button>
+        </div>
+      </div>
+      <div class="card" id="seasonCard"></div>
+    </div>
+
+    <div class="phone" aria-label="Control page as served by the ESP32">
+      <div class="url">http://spider.local</div>
+      <h2 id="ptitle">CORNER SPIDER</h2>
+      <div id="st">lurking in the corner</div>
+      <div class="sec" style="border:0;padding:0;background:none"><button id="stop">STOP</button></div>
+      <div class="sec"><h3>Shows</h3><div class="btns" id="shows"></div></div>
+      <div class="sec"><h3>Triggers</h3>
+        <div class="row"><button class="tog" id="arm" aria-pressed="true">Motion sensor</button><button class="tog" id="party" aria-pressed="false">Party mode</button></div>
+        <div class="pills" id="sensors"></div>
+      </div>
+      <div class="sec"><h3>Eyes, sound, lights</h3>
+        <div class="row"><label for="eyes">Eyes</label><select id="eyes"><option>off</option><option>glow</option><option>full</option><option>pulse</option><option>flicker</option><option>blink</option><option>disco</option></select></div>
+        <div class="row"><label for="vol">Volume</label><input type="range" id="vol" min="0" max="30" value="25"></div>
+        <div class="btns" id="sounds"></div>
+        <div class="row" style="margin-top:10px"><label>WLED</label></div>
+        <div class="btns" id="wled"></div>
+      </div>
+      <div class="sec"><h3>Setup: drop length</h3>
+        <div class="bar"><i id="barI"></i></div>
+        <div class="pos" id="pos"></div>
+        <div class="row"><button data-jog="-500">Up 500</button><button data-jog="-100">Up 100</button><button data-jog="100">Down 100</button><button data-jog="500">Down 500</button></div>
+        <div class="row"><button id="setdrop">Save spot as full drop</button><button id="home">Re-home</button></div>
+      </div>
+    </div>
+  </div>
+  <p class="note">Timings are the firmware's real speeds (2000 steps/s drop on a 30 mm spool). The motion cooldown is shortened from 20 s to 8 s and party mode fires every 20 to 40 s instead of 1 to 4 minutes, so you don't wait around. The sounds are the actual MP3 files for the SD card (real recordings, voice lines and music, credits in the repo), played one at a time like the DFPlayer does; the clicks are the piezo chitter. Guests come in through the door; the hall light behind them shows who they are. Flashing and shaking are toned down if your device asks for reduced motion.</p>
+</div>
+
+<script>
+// ---------------------------------------------------------------- seasons ---
+// Each season reuses the same rig: winch, 2 LEDs, piezo, MP3 slots 1-8 and 4 WLED presets.
+// tools/gen_seasons.mjs copies this table into the firmware.
+const SEASONS = {
+  halloween:{label:"Halloween",char:"Corner Spider",host:"spider.local",accent:"#ff7a1a",ink:"#1a0c00",eye:[255,30,30],draw:"spider",
+    sounds:["Hiss","Scream","Evil laugh","Creaky rope","Heartbeat","BOING","Spider Disco","\"Hiii!\""],
+    wled:[{n:"Ambient",fx:"breathe",c:[[120,40,200],[255,110,10]]},{n:"Lightning",fx:"lightning",c:[[230,235,255]]},{n:"Blood red",fx:"solid",c:[[170,0,10]]},{n:"Party",fx:"rainbow"}],
+    shows:{
+      drop:["The Classic Drop","lightning, scream, free fall",[["WLED",2],["EYES","full"],["SND",2],["MOVE",1000,0],["WAITMOVE"],["CHIT",700],["WIGGLE",5,180],["EYES","flicker"],["SND",1],["WAIT",1800],["WLED",3],["SND",3],["EYES","pulse"],["MOVE",0,1],["WAITMOVE"],["EYES","glow"],["WLED",1]]],
+      creep:["Creeping Doom","heartbeat, creep, BAM",[["WLED",3],["SND",5],["EYES","pulse"],["MOVE",450,1],["WAITMOVE"],["WAIT",1200],["EYES","off"],["RWAIT",600,2000],["WLED",2],["EYES","full"],["SND",1],["CHIT",900],["MOVE",1000,0],["WAITMOVE"],["WIGGLE",4,220],["WAIT",2000],["SND",3],["MOVE",0,1],["WAITMOVE"],["EYES","glow"],["WLED",1]]],
+      fakeout:["Fake-Out Boing","funny first, then the drop",[["EYES","blink"],["SND",4],["MOVE",550,1],["WAITMOVE"],["WAIT",800],["SND",6],["MOVE",0,0],["WAITMOVE"],["EYES","off"],["RWAIT",2500,5000],["WLED",2],["EYES","full"],["SND",2],["MOVE",1000,0],["WAITMOVE"],["CHIT",800],["WIGGLE",6,150],["WAIT",1500],["SND",3],["WLED",3],["MOVE",0,1],["WAITMOVE"],["EYES","glow"],["WLED",1]]],
+      peekaboo:["Peek-a-boo","squeaky hello",[["EYES","blink"],["MOVE",250,2],["WAITMOVE"],["SND",8],["WIGGLE",3,100],["WAIT",1200],["MOVE",0,0],["WAITMOVE"],["EYES","glow"]]],
+      twitch:["Ceiling Twitch","nervous little twitches",[["EYES","flicker"],["CHIT",500],["WIGGLE",3,120],["WAIT",400],["CHIT",300],["WIGGLE",2,60],["MOVE",0,2],["WAITMOVE"],["EYES","glow"]]],
+      disco:["Spider Disco","party lights and moves",[["WLED",4],["SND",7],["EYES","disco"],["MOVE",500,2],["WAITMOVE"],["WIGGLE",8,200],["MOVE",300,2],["WAITMOVE"],["WIGGLE",8,200],["MOVE",750,2],["WAITMOVE"],["WIGGLE",8,250],["MOVE",400,2],["WAITMOVE"],["WIGGLE",10,150],["MOVE",0,1],["WAITMOVE"],["SNDSTOP"],["EYES","glow"],["WLED",1]]]
+    },
+    scary:["drop","drop","creep","fakeout"],
+    blurb:"The original. A black spider tucked into the ceiling corner. Red eyes, hiss, scream and lightning.",
+    build:["Foam or plush spider under 250 g","Red 5 mm LEDs as eyes","WLED: purple/orange breathe, lightning, blood red"]},
+
+  christmas:{label:"Christmas",char:"Rappelling Santa",host:"santa.local",accent:"#e8463a",ink:"#fff",eye:[255,40,40],draw:"santa",
+    sounds:["Grumble","HO HO HO!","Jolly laugh","Chimney creak","Sleigh bells","BOING","Jingle Bell Rock","\"Naughty or nice?\""],
+    wled:[{n:"Warm twinkle",fx:"twinkle",c:[[255,170,70]]},{n:"Sparkle",fx:"sparkle",c:[[255,255,255]]},{n:"Candy cane",fx:"chase",c:[[220,0,0],[0,170,40]]},{n:"Party",fx:"rainbow"}],
+    shows:{
+      hoho:["Ho Ho Drop","Santa abseils in",[["WLED",2],["EYES","full"],["SND",2],["MOVE",1000,0],["WAITMOVE"],["WIGGLE",3,160],["SND",3],["WLED",3],["WAIT",2000],["SND",5],["MOVE",0,1],["WAITMOVE"],["EYES","glow"],["WLED",1]]],
+      stuck:["Stuck in the Chimney","too many cookies",[["SND",4],["MOVE",400,1],["WAITMOVE"],["SND",1],["WIGGLE",8,40],["WAIT",900],["CHIT",400],["WIGGLE",6,60],["SND",6],["MOVE",0,0],["WAITMOVE"],["WAIT",1200],["SND",2],["WLED",2],["MOVE",1000,0],["WAITMOVE"],["SND",3],["WAIT",1800],["MOVE",0,1],["WAITMOVE"],["WLED",1]]],
+      naughty:["Naughty or Nice?","peeks at the list",[["EYES","blink"],["MOVE",300,2],["WAITMOVE"],["SND",8],["WIGGLE",2,80],["WAIT",1500],["SND",3],["MOVE",0,0],["WAITMOVE"],["EYES","glow"]]],
+      bells:["Sleigh Bell Tease","jingles in the dark",[["SND",5],["EYES","flicker"],["WIGGLE",3,100],["WAIT",600],["WIGGLE",2,60],["EYES","glow"]]],
+      jingle:["Jingle Disco","Santa's got moves",[["WLED",4],["SND",7],["EYES","disco"],["MOVE",500,2],["WAITMOVE"],["WIGGLE",8,200],["MOVE",750,2],["WAITMOVE"],["WIGGLE",8,220],["MOVE",350,2],["WAITMOVE"],["WIGGLE",10,150],["MOVE",0,1],["WAITMOVE"],["SNDSTOP"],["EYES","glow"],["WLED",1]]]
+    },
+    scary:["hoho","stuck","naughty"],
+    blurb:"Santa rappels down from the corner, gets stuck in a pretend chimney, and wiggles free. The eye LEDs become his twinkling eyes and red nose.",
+    build:["Small Santa ornament or plush with a harness","Optional: a cardboard chimney ring around the line","WLED: warm twinkle, white sparkle, red/green chase"]},
+
+  easter:{label:"Easter",char:"Bungee Bunny",host:"bunny.local",accent:"#e58fd0",ink:"#2a0a22",eye:[255,120,200],draw:"bunny",
+    sounds:["Carrot crunch","Surprise honk","Bunny giggle","Spring sproing","Ticking clock","BOING","Hop Hop Hooray","\"Happy Easter!\""],
+    wled:[{n:"Pastel breathe",fx:"breathe",c:[[255,170,220],[150,220,255]]},{n:"Pastel flash",fx:"sparkle",c:[[255,240,150]]},{n:"Spring green",fx:"solid",c:[[90,220,110]]},{n:"Rainbow",fx:"rainbow"}],
+    shows:{
+      bungee:["Bungee Bunny","boing boing boing",[["WLED",2],["SND",2],["EYES","full"],["MOVE",1000,0],["WAITMOVE"],["SND",6],["WIGGLE",2,420],["WIGGLE",2,260],["WIGGLE",2,140],["WIGGLE",2,60],["SND",3],["WAIT",1200],["MOVE",0,2],["WAITMOVE"],["EYES","glow"],["WLED",1]]],
+      eggs:["Egg Delivery","lowers a basket of eggs",[["WLED",3],["EYES","blink"],["SND",5],["MOVE",850,1],["WAITMOVE"],["SND",8],["WIGGLE",2,60],["WAIT",2500],["SND",1],["MOVE",0,1],["WAITMOVE"],["EYES","glow"],["WLED",1]]],
+      peek:["Peek-a-bunny","ears first",[["EYES","blink"],["MOVE",200,2],["WAITMOVE"],["SND",4],["WIGGLE",3,60],["WAIT",900],["MOVE",0,0],["WAITMOVE"],["EYES","glow"]]],
+      hop:["Hop Disco","the bunny hop",[["WLED",4],["SND",7],["EYES","disco"],["MOVE",500,2],["WAITMOVE"],["WIGGLE",12,180],["MOVE",700,2],["WAITMOVE"],["WIGGLE",12,180],["MOVE",0,1],["WAITMOVE"],["SNDSTOP"],["EYES","glow"],["WLED",1]]]
+    },
+    scary:["bungee","eggs","peek"],
+    blurb:"A bunny on a bungee: it drops, bounces with shrinking hops, giggles and hops back up. Kid-friendly, no scares.",
+    build:["Plush bunny with a little harness","Pink LEDs for the eyes","Hang a small basket under it for Egg Delivery"]},
+
+  fall:{label:"Fall",char:"Acorn Heist Squirrel",host:"squirrel.local",accent:"#e0a030",ink:"#1d1200",eye:[255,170,40],draw:"squirrel",
+    sounds:["Angry chatter","Squirrel shriek","Cheeky giggle","Branch creak","Wind gust","BOING","Nutty Shuffle","\"Mine! All mine!\""],
+    wled:[{n:"Amber glow",fx:"breathe",c:[[230,120,20],[160,40,10]]},{n:"Leaf flicker",fx:"fire",c:[[255,120,0]]},{n:"Harvest",fx:"solid",c:[[200,90,10]]},{n:"Party",fx:"rainbow"}],
+    shows:{
+      heist:["Acorn Heist","zip down, grab, zip up",[["SND",4],["EYES","flicker"],["MOVE",650,2],["WAITMOVE"],["WAIT",500],["SND",2],["MOVE",1000,0],["WAITMOVE"],["CHIT",600],["WIGGLE",4,80],["SND",8],["MOVE",0,0],["WAITMOVE"],["SND",3],["EYES","glow"]]],
+      leaves:["Leaf Storm","the corner rustles",[["WLED",2],["SND",5],["EYES","flicker"],["CHIT",900],["WIGGLE",4,140],["WAIT",800],["SND",1],["WIGGLE",3,80],["EYES","glow"],["WLED",1]]],
+      standoff:["The Stare-Down","won't blink first",[["WLED",3],["EYES","full"],["MOVE",700,1],["WAITMOVE"],["WAIT",3000],["SND",1],["CHIT",1200],["WIGGLE",6,50],["SND",2],["MOVE",0,0],["WAITMOVE"],["EYES","glow"],["WLED",1]]],
+      shuffle:["Nutty Shuffle","dance break",[["WLED",4],["SND",7],["EYES","disco"],["MOVE",450,2],["WAITMOVE"],["WIGGLE",10,200],["MOVE",800,2],["WAITMOVE"],["WIGGLE",10,160],["MOVE",0,1],["WAITMOVE"],["SNDSTOP"],["EYES","glow"],["WLED",1]]]
+    },
+    scary:["heist","standoff","leaves"],
+    blurb:"A squirrel lives in the corner and steals acorns from your snack table. The piezo chitter is its angry chatter. Works for any autumn party, Thanksgiving included.",
+    build:["Plush squirrel holding a real acorn","Amber LEDs for the eyes","Fake leaves glued around the corner","WLED: amber breathe, fire flicker"]},
+
+  winter:{label:"Winter",char:"Brain Freeze Yeti",host:"yeti.local",accent:"#5cc8f0",ink:"#00121c",eye:[90,200,255],draw:"yeti",
+    sounds:["Shiver","YETI ROAR","Frosty laugh","Ice crack","Howling wind","BOING","Blizzard Boogie","\"Brrrr!\""],
+    wled:[{n:"Icy blue",fx:"breathe",c:[[60,140,255],[200,240,255]]},{n:"Blizzard",fx:"lightning",c:[[220,240,255]]},{n:"Aurora",fx:"aurora",c:[[40,255,160],[80,60,255]]},{n:"Party",fx:"rainbow"}],
+    shows:{
+      yeti:["Yeti Drop","a roar from the ceiling",[["WLED",2],["EYES","full"],["SND",2],["MOVE",1000,0],["WAITMOVE"],["WIGGLE",5,200],["WAIT",1500],["SND",3],["WLED",3],["MOVE",0,1],["WAITMOVE"],["EYES","glow"],["WLED",1]]],
+      freeze:["Brain Freeze","shivering, teeth chattering",[["SND",5],["EYES","pulse"],["MOVE",600,1],["WAITMOVE"],["SND",1],["CHIT",2500],["WIGGLE",14,25],["SND",8],["WAIT",800],["MOVE",0,2],["WAITMOVE"],["EYES","glow"]]],
+      crack:["Thin Ice","creak... crack... DROP",[["WLED",3],["SND",4],["MOVE",150,1],["WAITMOVE"],["WAIT",1500],["SND",4],["MOVE",300,1],["WAITMOVE"],["EYES","off"],["RWAIT",1200,2500],["WLED",2],["EYES","full"],["SND",2],["MOVE",1000,0],["WAITMOVE"],["WIGGLE",3,180],["WAIT",1500],["MOVE",0,1],["WAITMOVE"],["EYES","glow"],["WLED",1]]],
+      boogie:["Blizzard Boogie","the yeti can dance",[["WLED",4],["SND",7],["EYES","disco"],["MOVE",550,2],["WAITMOVE"],["WIGGLE",8,220],["MOVE",300,2],["WAITMOVE"],["WIGGLE",8,200],["MOVE",0,1],["WAITMOVE"],["SNDSTOP"],["EYES","glow"],["WLED",1]]]
+    },
+    scary:["yeti","crack","freeze"],
+    blurb:"A fluffy yeti with icy blue eyes. Scary drop with a roar, or a funny shivering Brain Freeze. The WLED aurora preset makes the room feel like the Arctic.",
+    build:["White faux-fur yeti (a fluffy white plush works)","Ice-blue LEDs for the eyes","WLED: icy breathe, blizzard flash, aurora"]}
+};
+const SPEEDS=[[2000,20000],[250,600],[667,6667]]; // fast, slow, medium: [steps/s, steps/s²]
+const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+// What each MP3 slot sounds like in the simulator, per season.
+const SOUNDFX={
+  halloween:["hiss","scream","laughEvil","creak","heartbeat","boing","dance","squeak"],
+  christmas:["grumble","hohoho","laughJolly","creak","sleighbells","boing","dance","naughty"],
+  easter:["crunch","honk","giggle","sproing","clock","boing","dance","happyEaster"],
+  fall:["chatter","shriek","giggle","creak","wind","boing","dance","mine"],
+  winter:["shiver","roar","laughFrosty","icecrack","wind","boing","dance","brrr"]
+};
+const ROOM={
+  halloween:{wall:[52,40,62],pat:[70,55,84],wain:[30,22,36],floor:[48,32,24],sky:[[10,8,30],[40,20,60]],moon:[230,230,210]},
+  christmas:{wall:[66,40,36],pat:[86,54,48],wain:[38,26,22],floor:[64,44,28],sky:[[6,10,30],[30,40,80]],moon:[235,240,255]},
+  easter:{wall:[54,66,86],pat:[70,84,110],wain:[36,42,58],floor:[70,60,44],sky:[[14,20,50],[70,60,110]],moon:[250,240,220]},
+  fall:{wall:[64,50,32],pat:[82,64,42],wain:[40,30,18],floor:[66,44,26],sky:[[20,10,20],[90,40,30]],moon:[255,170,80]},
+  winter:{wall:[40,56,72],pat:[54,74,94],wain:[26,36,48],floor:[48,54,62],sky:[[4,10,26],[30,60,90]],moon:[220,235,255]}
+};
+
+// ------------------------------------------------------------------ state ---
+let seasonKey="halloween", S=SEASONS[seasonKey], R=ROOM[seasonKey];
+const st={pos:0,vel:0,target:0,maxV:2000,acc:20000,drop:3200,homing:false,homed:true,
+  eyes:"glow",armed:true,party:false,vol:25,wled:1,show:null,pc:0,waitUntil:null,wig:-1,wigBase:0,wigOther:0,
+  chitUntil:0,lastScare:-1e9,nextParty:0};
+let now=0, lastT=performance.now();
+const captions=[];
+const guest={active:false,x:0,t0:0,jump:0,said:null,reactAt:-1e9};
+const score={scared:0,laughed:0};
+let pirHot=0, shakeUntil=0, prevVel=0, prevFrac=0, landed=-1e9, nowPlaying="quiet", nowPlayingAt=-1e9;
+
+// ================================================================== AUDIO ===
+let ac=null, bus, master, wet, verbIn, sampleBus, soundOn=false, live=[], noiseBuf=null, ambient=null, mp3=null;
+const VERB={halloween:.5,christmas:.28,easter:.18,fall:.3,winter:.55};
+function audioInit(){
+  if(ac) return;
+  ac=new (window.AudioContext||window.webkitAudioContext)();
+  const comp=ac.createDynamicsCompressor(); comp.threshold.value=-16; comp.ratio.value=5; comp.connect(ac.destination);
+  master=ac.createGain(); master.connect(comp);
+  bus=ac.createGain(); const dry=ac.createGain(); wet=ac.createGain(); const verb=ac.createConvolver();
+  const len=ac.sampleRate*2.8, ir=ac.createBuffer(2,len,ac.sampleRate);
+  for(let c=0;c<2;c++){ const d=ir.getChannelData(c); for(let i=0;i<len;i++) d[i]=(Math.random()*2-1)*Math.pow(1-i/len,2.6); }
+  verb.buffer=ir; verbIn=verb; bus.connect(dry).connect(master); bus.connect(verb).connect(wet).connect(master);
+  // recorded MP3s already carry their own reverb, so they only get a small room send
+  sampleBus=ac.createGain(); sampleBus.connect(master); const send=ac.createGain(); send.gain.value=0.35; sampleBus.connect(send).connect(verb);
+  noiseBuf=ac.createBuffer(1,ac.sampleRate*3,ac.sampleRate); const nd=noiseBuf.getChannelData(0); for(let i=0;i<nd.length;i++) nd[i]=Math.random()*2-1;
+  setVol(); setVerb();
+}
+// ---- the real SD-card MP3s. The published page has them under sounds/, a repo
+// checkout finds them in ../sd-card/. If neither loads, the synth stand-ins play.
+const SEASON_DIR={halloween:"01",christmas:"02",easter:"03",fall:"04",winter:"05"};
+const SIM_SOUNDS=["thunder","door","footsteps","gasp","gasp2","laugh-guest","laugh-guest2"];
+const bufs={}, loading={};
+async function fetchBuf(paths){ for(const p of paths){ try{ const r=await fetch(p); if(!r.ok) continue; return await ac.decodeAudioData(await r.arrayBuffer()); }catch(e){} } return null; }
+function loadSample(key,paths){ if(key in bufs||loading[key]) return; loading[key]=fetchBuf(paths).then(b=>{ bufs[key]=b; loading[key]=null; }); }
+const slotKey=n=>SEASON_DIR[seasonKey]+"/"+String(n).padStart(3,"0");
+function preloadSeason(){
+  if(!ac) return;
+  for(let n=1;n<=8;n++){ const k=slotKey(n); loadSample(k,["sounds/"+k+".mp3","../sd-card/"+k+".mp3"]); }
+  SIM_SOUNDS.concat("amb-"+seasonKey).forEach(n=>loadSample("sim/"+n,["sounds/sim/"+n+".mp3"]));
+}
+function playBuf(key,g=1,{when=0,loop=false,dest=sampleBus,rate=1}={}){
+  const b=bufs[key]; if(!soundOn||!ac||!b) return null;
+  const s=ac.createBufferSource(), v=ac.createGain(); s.buffer=b; s.loop=loop; s.playbackRate.value=rate; v.gain.value=g;
+  s.connect(v).connect(dest); s.start(ac.currentTime+when); if(!loop) keep(s); return s;
+}
+function setVol(){ if(master) master.gain.value=(st.vol/30)*0.9; }
+function setVerb(){ if(wet) wet.gain.value=VERB[seasonKey]; }
+const keep=n=>{ live.push(n); n.onended=()=>{ live=live.filter(x=>x!==n); }; return n; };
+function stopAudio(){ live.forEach(n=>{ try{n.stop()}catch(e){} }); live=[]; }
+const mtof=m=>440*Math.pow(2,(m-69)/12);
+function env(param,t,a,peak,hold,rel){ param.setValueAtTime(0.0001,t); param.linearRampToValueAtTime(peak,t+a); param.setValueAtTime(peak,t+a+hold); param.exponentialRampToValueAtTime(0.0001,t+a+hold+rel); }
+function tone(type,f,t,dur,g,dest=bus,a=0.005){ const o=ac.createOscillator(), v=ac.createGain(); o.type=type; o.frequency.setValueAtTime(f,t); env(v.gain,t,a,g,Math.max(0,dur*0.2),dur*0.8); o.connect(v).connect(dest); o.start(t); o.stop(t+a+dur+0.05); keep(o); return o; }
+function filt(type,f,Q=1){ const x=ac.createBiquadFilter(); x.type=type; x.frequency.value=f; x.Q.value=Q; return x; }
+function noise(t,dur,chain,g,a=0.005){ const s=ac.createBufferSource(); s.buffer=noiseBuf; s.loop=true; const v=ac.createGain(); env(v.gain,t,a,g,dur*0.1,dur*0.9); let n=s; chain.forEach(c=>{ n.connect(c); n=c; }); n.connect(v).connect(bus); s.start(t,Math.random()*2); s.stop(t+a+dur+0.05); keep(s); return v; }
+
+// A small formant voice: a buzzy source shaped by three vowel resonances.
+const VOW={a:[800,1150,2900],ah:[700,1220,2600],o:[450,800,2830],e:[400,1600,2700],i:[300,2200,3000],u:[325,700,2530]};
+function voice(t0,sylls,o={}){
+  const out=ac.createGain(); out.gain.value=o.gain??0.5; out.connect(bus);
+  const fs=[0,1,2].map(k=>{ const f=filt("bandpass",500,[7,9,11][k]); const gg=ac.createGain(); gg.gain.value=[1,.6,.3][k]; f.connect(gg).connect(out); return f; });
+  let shaper=null; if(o.growl){ shaper=ac.createWaveShaper(); const c=new Float32Array(256); for(let i=0;i<256;i++){ const x=i/128-1; c[i]=Math.tanh(x*o.growl); } shaper.curve=c; }
+  let t=t0;
+  for(const [v,dur,f1,f2,gap=0.05] of sylls){
+    const src=ac.createOscillator(); src.type="sawtooth"; src.frequency.setValueAtTime(f1,t); src.frequency.linearRampToValueAtTime(f2,t+dur);
+    const lfo=ac.createOscillator(), lg=ac.createGain(); lfo.frequency.value=5+Math.random()*2; lg.gain.value=f1*0.025*(o.vib??1); lfo.connect(lg).connect(src.frequency);
+    const a=ac.createGain(); a.gain.setValueAtTime(0.0001,t); a.gain.linearRampToValueAtTime(1,t+0.025); a.gain.setValueAtTime(1,t+dur*0.65); a.gain.linearRampToValueAtTime(0.0001,t+dur);
+    if(o.trem){ const tr=ac.createOscillator(), tg=ac.createGain(); tr.frequency.value=o.trem; tg.gain.value=0.5; tr.connect(tg).connect(a.gain); tr.start(t); tr.stop(t+dur); keep(tr); }
+    let head=src; if(shaper){ src.connect(shaper); head=shaper; }
+    head.connect(a);
+    fs.forEach((f,k)=>{ f.frequency.setValueAtTime(VOW[v][k]*(o.formant??1),t); });
+    a.connect(fs[0]); a.connect(fs[1]); a.connect(fs[2]);
+    if(o.breath){ const s=ac.createBufferSource(); s.buffer=noiseBuf; const bg=ac.createGain(); bg.gain.setValueAtTime(0.0001,t); bg.gain.linearRampToValueAtTime(o.breath,t+0.02); bg.gain.linearRampToValueAtTime(0.0001,t+dur); s.connect(bg); fs.forEach(f=>bg.connect(f)); s.start(t,Math.random()*2); s.stop(t+dur+0.02); keep(s); }
+    src.start(t); src.stop(t+dur+0.02); lfo.start(t); lfo.stop(t+dur+0.02); keep(src); keep(lfo);
+    t+=dur+gap;
+  }
+  return t;
+}
+function spring(t,base,top,rate,dur,g){ const o=ac.createOscillator(), v=ac.createGain(), l=ac.createOscillator(), lg=ac.createGain(); o.type="sine"; o.frequency.setValueAtTime(base,t); o.frequency.exponentialRampToValueAtTime(top,t+dur*0.4); l.frequency.value=rate; lg.gain.setValueAtTime(base*0.8,t); lg.gain.exponentialRampToValueAtTime(1,t+dur); l.connect(lg).connect(o.frequency); env(v.gain,t,0.005,g,0.05,dur); o.connect(v).connect(bus); o.start(t); l.start(t); o.stop(t+dur+0.1); l.stop(t+dur+0.1); keep(o); keep(l); }
+function bell(t,m,dur,g=0.12){ const f=mtof(m); [[1,1],[2.76,.35],[5.4,.12]].forEach(([k,a])=>tone("sine",f*k,t,dur*(1.6-k*0.15),g*a)); }
+function pluck(t,m,dur,g=0.14){ const o=ac.createOscillator(), v=ac.createGain(), lp=filt("lowpass",3200,2); o.type="sawtooth"; o.frequency.value=mtof(m); lp.frequency.setValueAtTime(3500,t); lp.frequency.exponentialRampToValueAtTime(400,t+0.35); env(v.gain,t,0.003,g,0,0.45); o.connect(lp).connect(v).connect(bus); o.start(t); o.stop(t+0.6); keep(o); }
+function organ(t,m,dur,g=0.07){ const lp=filt("lowpass",2400); lp.connect(bus); ["square","sine"].forEach((ty,k)=>{ const o=ac.createOscillator(), v=ac.createGain(); o.type=ty; o.frequency.value=mtof(m)*(k?2:1); env(v.gain,t,0.02,g,dur*0.6,dur*0.4); o.connect(v).connect(lp); o.start(t); o.stop(t+dur+0.1); keep(o); }); }
+function pad(t,m,dur,g=0.05){ const lp=filt("lowpass",1300); lp.connect(bus); [-7,7].forEach(d=>{ const o=ac.createOscillator(), v=ac.createGain(); o.type="sawtooth"; o.frequency.value=mtof(m); o.detune.value=d; env(v.gain,t,0.25,g,dur*0.5,dur*0.5); o.connect(v).connect(lp); o.start(t); o.stop(t+dur+0.6); keep(o); }); }
+function kick(t){ const o=ac.createOscillator(), v=ac.createGain(); o.frequency.setValueAtTime(150,t); o.frequency.exponentialRampToValueAtTime(45,t+0.18); env(v.gain,t,0.002,0.8,0.02,0.25); o.connect(v).connect(bus); o.start(t); o.stop(t+0.35); keep(o); }
+function jingle(t,g=0.05){ for(let k=0;k<3;k++){ const f=3000+Math.random()*3500; tone("sine",f,t+k*0.012,0.16,g); } }
+const MELODY={
+  halloween:{bpm:112,inst:organ,mel:[[69,1],[72,1],[76,1],[75,1],[76,2],[72,1],[69,1],[68,1],[71,1],[74,1],[71,1],[68,2],[64,2],[69,1],[72,1],[76,1],[79,1],[78,2],[76,1],[72,1],[71,1],[74,1],[77,1],[74,1],[71,4]],bass:[45,41,40,40]},
+  christmas:{bpm:126,inst:bell,mel:[[64,1],[64,1],[64,2],[64,1],[64,1],[64,2],[64,1],[67,1],[60,1.5],[62,.5],[64,4],[65,1],[65,1],[65,1.5],[65,.5],[65,1],[64,1],[64,1],[64,.5],[64,.5],[64,1],[62,1],[62,1],[64,1],[62,2],[67,2]],bass:[48,48,41,43]},
+  easter:{bpm:128,inst:pluck,mel:[[72,1],[76,1],[79,1],[76,1],[77,1],[81,1],[79,2],[76,1],[72,1],[74,1],[76,1],[74,2],[72,2]],bass:[48,41,43,48]},
+  fall:{bpm:120,inst:pluck,mel:[[67,1],[71,1],[74,1],[71,1],[72,1],[76,1],[74,2],[71,1],[67,1],[69,1],[71,1],[69,2],[67,2]],bass:[43,48,38,43]},
+  winter:{bpm:104,inst:bell,mel:[[64,2],[67,2],[71,2],[69,2],[67,2],[66,2],[64,4]],bass:[40,36,43,38]}
+};
+function dance(t0){
+  const M=MELODY[seasonKey], e=60/M.bpm/2; // one eighth note
+  const total=64;
+  for(let b=0;b<total;b+=2){ const t=t0+b*e; kick(t); if(b%4===2){ noise(t,0.14,[filt("bandpass",1800,0.8)],0.35); tone("triangle",190,t,0.08,0.15); } noise(t+e,0.04,[filt("highpass",7000)],0.12); if(seasonKey==="christmas") jingle(t+e*0.5,0.03); }
+  for(let b=0;b<total;b++){ const root=M.bass[Math.floor(b/8)%4]; const o=ac.createOscillator(), v=ac.createGain(), lp=filt("lowpass",500,4); o.type="sawtooth"; o.frequency.value=mtof(root+(b%2?12:0)); env(v.gain,t0+b*e,0.005,0.12,e*0.3,e*0.6); o.connect(lp).connect(v).connect(bus); o.start(t0+b*e); o.stop(t0+(b+1)*e+0.05); keep(o); }
+  let pos=0; while(pos<total){ for(const [m,d] of M.mel){ if(pos>=total) break; M.inst(t0+pos*e,m,d*e); if(seasonKey==="winter") pad(t0+pos*e,m-12,d*e); pos+=d; } }
+}
+function thunder(){ if(playBuf("sim/thunder",0.9,{when:0.4+Math.random()*0.9,rate:0.9+Math.random()*0.2})) return; const t=ac.currentTime+0.4+Math.random()*0.9; noise(t,0.25,[filt("highpass",900)],0.35); const lp=filt("lowpass",400); lp.frequency.setValueAtTime(400,t); lp.frequency.exponentialRampToValueAtTime(90,t+3); noise(t+0.05,3.2,[lp],0.9,0.08); }
+const SFX={
+  hiss:t=>{ noise(t,1.0,[filt("highpass",3000),filt("peaking",6500,1)],0.6,0.08); noise(t+1.05,0.35,[filt("highpass",4000)],0.4,0.02); },
+  scream:t=>{ voice(t,[["a",1.2,900,1250]],{vib:4,breath:.5,gain:.5,formant:1.15}); const lp=filt("lowpass",800,3); lp.frequency.setValueAtTime(700,t); lp.frequency.exponentialRampToValueAtTime(5000,t+0.6); lp.connect(bus); [220,233,311,330,466].forEach(f=>{ const o=ac.createOscillator(),v=ac.createGain(); o.type="sawtooth"; o.frequency.value=f; env(v.gain,t,0.01,0.05,0.4,0.9); o.connect(v).connect(lp); o.start(t); o.stop(t+1.5); keep(o); }); },
+  laughEvil:t=>{ let k=voice(t,[["u",.3,120,105,.1]],{gain:.5,breath:.2}); voice(k,[0,1,2,3,4,5].map(i=>["ah",.14,175-i*11,165-i*11,.08]),{gain:.55,breath:.45,formant:.9}); },
+  laughJolly:t=>{ voice(t,[0,1,2,3,4].map(i=>["ah",.13,190-i*6,180-i*6,.07]),{gain:.5,breath:.35}); },
+  laughFrosty:t=>{ voice(t,[0,1,2,3,4,5].map(i=>["ah",.14,150-i*6,140-i*6,.09]),{gain:.5,breath:.5,formant:.85}); },
+  creak:t=>{ for(let i=0;i<70;i++){ const tt=t+i*0.02*(1+0.5*Math.sin(i/6)); noise(tt,0.012,[filt("bandpass",520+180*Math.sin(i/9),14)],0.9,0.001); } },
+  heartbeat:t=>{ for(let i=0;i<7;i++){ const tt=t+i*0.82; [0,0.24].forEach((d,k)=>{ const o=ac.createOscillator(),v=ac.createGain(); o.frequency.setValueAtTime(k?60:68,tt+d); o.frequency.exponentialRampToValueAtTime(38,tt+d+0.15); env(v.gain,tt+d,0.004,k?0.6:0.85,0.02,0.2); o.connect(v).connect(bus); o.start(tt+d); o.stop(tt+d+0.3); keep(o); }); } },
+  boing:t=>spring(t,180,420,13,0.9,0.45),
+  sproing:t=>{ spring(t,320,900,18,0.6,0.35); spring(t+0.35,300,700,16,0.5,0.25); },
+  dance:t=>dance(t),
+  squeak:t=>voice(t,[["i",.12,750,950,.05],["i",.38,950,1450]],{formant:1.35,vib:2,gain:.4}),
+  grumble:t=>voice(t,[["u",.2,95,90],["o",.18,100,85],["u",.25,90,80],["o",.3,88,75]],{gain:.5,breath:.3,formant:.9}),
+  hohoho:t=>{ voice(t,[0,1,2].map(i=>["o",.32,118-i*4,100-i*4,.15]),{gain:.65,breath:.25,formant:.92}); SFX.sleighbells(t+1.4,0.5); },
+  naughty:t=>voice(t,[["o",.18,180,160],["i",.12,170,160],["o",.14,160,150],["ah",.32,175,215]],{gain:.4,breath:.6}),
+  sleighbells:(t,dur=2.4)=>{ for(let x=0;x<dur;x+=0.06){ if((x/0.06|0)%4<3) jingle(t+x+Math.random()*0.02,0.035); } },
+  crunch:t=>{ for(let i=0;i<9;i++) noise(t+i*0.09+Math.random()*0.03,0.04,[filt("bandpass",2200+Math.random()*1500,2)],0.7,0.002); },
+  honk:t=>{ [0,0.42].forEach(d=>{ const o=ac.createOscillator(),v=ac.createGain(),bp=filt("bandpass",900,2.5); o.type="square"; o.frequency.setValueAtTime(330,t+d); o.frequency.linearRampToValueAtTime(300,t+d+0.3); env(v.gain,t+d,0.01,0.35,0.2,0.12); o.connect(bp).connect(v).connect(bus); o.start(t+d); o.stop(t+d+0.4); keep(o); }); },
+  giggle:t=>voice(t,[0,1,2,3,4,5,6].map(i=>["i",.07,620+(i%2)*120,700+(i%2)*120,.05]),{formant:1.3,gain:.4,breath:.3}),
+  clock:t=>{ for(let i=0;i<8;i++) noise(t+i*0.5,0.03,[filt("bandpass",i%2?2100:3200,9)],0.9,0.001); },
+  happyEaster:t=>voice(t,[["a",.14,320,340],["i",.12,340,330],["i",.16,380,420],["ah",.14,360,340],["u",.3,320,280]],{formant:1.2,gain:.5}),
+  chatter:t=>{ for(let i=0;i<18;i++){ const tt=t+i*0.055; const o=ac.createOscillator(),v=ac.createGain(),bp=filt("bandpass",3200,3); o.type="square"; o.frequency.setValueAtTime(2600+Math.random()*1500,tt); o.frequency.exponentialRampToValueAtTime(1800,tt+0.03); env(v.gain,tt,0.002,0.3,0.01,0.03); o.connect(bp).connect(v).connect(bus); o.start(tt); o.stop(tt+0.06); keep(o); } },
+  shriek:t=>{ voice(t,[["i",.6,1500,2100]],{formant:1.4,vib:4,gain:.35,breath:.4}); SFX.chatter(t+0.6); },
+  wind:t=>{ const bp=filt("bandpass",300,1.5); bp.frequency.setValueAtTime(300,t); bp.frequency.linearRampToValueAtTime(950,t+1.4); bp.frequency.linearRampToValueAtTime(350,t+3); noise(t,3,[bp],0.7,0.8); },
+  mine:t=>voice(t,[["ah",.18,300,330],["i",.24,360,300],["ah",.12,300,300],["o",.14,300,290],["ah",.16,330,320],["i",.32,380,300]],{formant:1.3,gain:.5}),
+  shiver:t=>{ for(let i=0;i<40;i++) noise(t+i*0.04,0.01,[filt("bandpass",2500,6)],0.6,0.001); voice(t+0.2,[["u",1.1,150,130]],{trem:26,gain:.3,breath:.3}); },
+  roar:t=>{ voice(t,[["ah",1.6,95,70]],{growl:6,gain:.55,breath:.6,formant:.75,vib:2}); noise(t,1.6,[filt("lowpass",900)],0.4,0.1); },
+  icecrack:t=>{ noise(t,0.12,[filt("highpass",1500)],0.9,0.001); [2600,3700,5100].forEach((f,k)=>tone("sine",f,t+0.02+k*0.03,0.6,0.08)); noise(t+0.25,0.08,[filt("highpass",2500)],0.5,0.001); },
+  brrr:t=>voice(t,[["u",1.0,140,120]],{trem:28,gain:.45,breath:.3})
+};
+function synth(slot){ if(!soundOn||!ac) return; const k=SOUNDFX[seasonKey][slot-1]; SFX[k](ac.currentTime+0.02); }
+// The DFPlayer plays one file at a time: a new track cuts the last one off.
+function mp3Play(slot){
+  if(!soundOn||!ac) return;
+  if(mp3){ try{ mp3.stop() }catch(e){} mp3=null; }
+  mp3=playBuf(slotKey(slot),1); if(!mp3) synth(slot);
+}
+function chirp(){ if(soundOn&&ac){ const t=ac.currentTime; const o=ac.createOscillator(),v=ac.createGain(); o.type="square"; o.frequency.value=2200+Math.random()*2600; env(v.gain,t,0.001,0.035,0.004,0.006); o.connect(v).connect(master); o.start(t); o.stop(t+0.02); } }
+// quiet background sounds per season
+function startAmbient(){
+  stopAmbient(); if(!soundOn||!ac) return;
+  const rec=playBuf("sim/amb-"+seasonKey,{halloween:.55,christmas:.4,easter:.35,fall:.5,winter:.5}[seasonKey],{loop:true,dest:master});
+  if(rec){ ambient={s:rec,rec:true}; return; }
+  const s=ac.createBufferSource(); s.buffer=noiseBuf; s.loop=true; const bp=filt("bandpass",400,2); const lfo=ac.createOscillator(), lg=ac.createGain(); lfo.frequency.value=0.09; lg.gain.value=250; lfo.connect(lg).connect(bp.frequency);
+  const v=ac.createGain(); v.gain.value={halloween:.06,christmas:.015,easter:.01,fall:.03,winter:.09}[seasonKey];
+  s.connect(bp).connect(v).connect(master); s.start(); lfo.start(); ambient={s,lfo};
+}
+function stopAmbient(){ if(ambient){ try{ambient.s.stop(); ambient.lfo&&ambient.lfo.stop();}catch(e){} ambient=null; } }
+let nextAmb=0;
+function ambientTick(){
+  if(soundOn&&ac&&ambient&&!ambient.rec&&bufs["sim/amb-"+seasonKey]) startAmbient();   // the recording just finished loading
+  if(!soundOn||!ac||now<nextAmb) return; const t=ac.currentTime;
+  if(seasonKey==="christmas"||seasonKey==="fall"){ for(let i=0;i<3;i++) noise(t+Math.random()*0.3,0.008,[filt("highpass",1500)],0.25*Math.random(),0.001); nextAmb=now+120+Math.random()*400; }
+  else if(seasonKey==="easter"){ const o=ac.createOscillator(),v=ac.createGain(); o.type="sine"; o.frequency.setValueAtTime(3200,t); o.frequency.exponentialRampToValueAtTime(4800,t+0.08); o.frequency.exponentialRampToValueAtTime(3000,t+0.16); env(v.gain,t,0.01,0.04,0.05,0.1); o.connect(v).connect(bus); o.start(t); o.stop(t+0.3); nextAmb=now+1500+Math.random()*3000; }
+  else nextAmb=now+1e9;
+}
+
+// ============================================================ SHOW ENGINE ===
+function playSlot(n){ captions.push({text:"♪ "+S.sounds[n-1],t0:now}); if(captions.length>3) captions.shift(); nowPlaying=S.sounds[n-1]; nowPlayingAt=now; mp3Play(n); }
+function moveTo(steps,sp){ st.target=Math.max(0,Math.min(st.drop,steps)); [st.maxV,st.acc]=SPEEDS[sp]; }
+const running=()=>Math.abs(st.target-st.pos)>0.5||Math.abs(st.vel)>1;
+function startShow(id){ if(!st.homed||st.homing||!S.shows[id]) return false; st.show=id; st.pc=0; st.waitUntil=null; st.wig=-1; st.lastScare=now; return true; }
+function stopAll(){ st.show=null; st.homing=false; st.target=Math.round(st.pos); st.vel=0; stopAudio(); mp3=null; st.chitUntil=0; st.eyes="glow"; }
+function showTick(){
+  if(!st.show) return;
+  const steps=S.shows[st.show][2];
+  for(;;){
+    const s=steps[st.pc];
+    if(!s){ st.show=null; return; }
+    const [op,a,b]=s;
+    if(op==="MOVE"){ moveTo(st.drop*a/1000,b); st.pc++; }
+    else if(op==="WAITMOVE"){ if(running()) return; st.pc++; }
+    else if(op==="WAIT"||op==="RWAIT"){ if(st.waitUntil===null) st.waitUntil=now+(op==="WAIT"?a:a+Math.random()*(b-a)); if(now<st.waitUntil) return; st.waitUntil=null; st.pc++; }
+    else if(op==="SND"){ playSlot(a); st.pc++; }
+    else if(op==="SNDSTOP"){ stopAudio(); st.pc++; }
+    else if(op==="EYES"){ st.eyes=a; st.pc++; }
+    else if(op==="WLED"){ st.wled=a; st.pc++; }
+    else if(op==="CHIT"){ st.chitUntil=now+a; st.pc++; }
+    else if(op==="WIGGLE"){
+      if(running()) return;
+      if(st.wig<0){ st.wigBase=Math.round(st.pos); st.wigOther=st.wigBase+b<=st.drop?st.wigBase+b:st.wigBase-b; st.wig=a*2; }
+      if(st.wig===0){ st.wig=-1; st.pc++; continue; }
+      moveTo(st.wig%2===0?st.wigOther:st.wigBase,0); st.wig--; return;
+    }
+  }
+}
+// trapezoid motion, same maths as the firmware's motion.Profile
+function physics(dt){
+  for(let k=0;k<8;k++){
+    const h=dt/8, d=st.target-st.pos, dir=d>0?1:-1;
+    if(Math.abs(d)<=0.5&&Math.abs(st.vel)<=st.acc*h*2){ st.pos=st.target; st.vel=0; break; }
+    const stopDist=st.vel*st.vel/(2*st.acc);
+    if(st.vel!==0&&(st.vel>0)===(dir>0)&&stopDist>=Math.abs(d)) st.vel-=Math.sign(st.vel)*st.acc*h; else st.vel+=dir*st.acc*h;
+    st.vel=Math.max(-st.maxV,Math.min(st.maxV,st.vel));
+    const np=st.pos+st.vel*h;
+    if((st.target-np)*dir<=0){ st.pos=st.target; st.vel=0; } else st.pos=np;
+  }
+  if(st.homing&&!running()){ st.homing=false; st.homed=true; st.pos=0; }
+}
+let nextChirp=0;
+function triggers(){
+  if(now<st.chitUntil&&now>=nextChirp){ chirp(); nextChirp=now+25+Math.random()*45; }
+  if(st.show||st.homing) return;
+  if(st.armed&&pirHot>now&&now-st.lastScare>8000){ startShow(S.scary[Math.floor(Math.random()*S.scary.length)]); return; }
+  if(st.party&&now>=st.nextParty){ const ids=Object.keys(S.shows); startShow(ids[Math.floor(Math.random()*ids.length)]); st.nextParty=now+20000+Math.random()*20000; }
+}
+
+// ======================================================= EYES + WLED ===
+let flick=1,nextFlick=0,nextBlink=0,blinkEnd=0;
+function eyeLevels(){
+  switch(st.eyes){
+    case "off": return [0,0];
+    case "glow": return [0.15,0.15];
+    case "full": return [1,1];
+    case "pulse": { const v=0.05+0.95*(Math.sin(now/1500*2*Math.PI)+1)/2; return [v,v]; }
+    case "flicker": if(now>=nextFlick){flick=0.15+Math.random()*0.85; nextFlick=now+20+Math.random()*70;} return [flick,flick];
+    case "blink": if(now>=nextBlink){blinkEnd=now+140; nextBlink=now+1500+Math.random()*2500;} return now<blinkEnd?[0,0]:[0.8,0.8];
+    case "disco": return Math.floor(now/220)%2?[1,0]:[0,1];
+  }
+  return [0,0];
+}
+const NLED=56; const leds=new Array(NLED).fill(0).map(()=>[0,0,0]); const twk=new Array(NLED).fill(0);
+let boltUntil=0,nextBolt=0,lastThunder=-1e9,bolt=[];
+function hsv(h){ const f=n=>{const k=(n+h*6)%6; return 255*(1-Math.max(0,Math.min(k,4-k,1)));}; return [f(5),f(3),f(1)]; }
+function wledTick(){
+  const p=S.wled[st.wled-1], t=now/1000;
+  if(p.fx==="lightning"&&now>=nextBolt){
+    boltUntil=now+(reduceMotion?400:60+Math.random()*140); nextBolt=now+(reduceMotion?1600:300+Math.random()*1100);
+    bolt=[]; let bu=0.2+Math.random()*0.25, bv=0.2; while(bv<0.5){ bolt.push([bu,bv]); bu+=(Math.random()-0.5)*0.05; bv+=0.02+Math.random()*0.04; } bolt.push([bu,0.5]);
+    if(seasonKey==="halloween"&&Math.random()<0.35) for(let i=0;i<3;i++){ const [x,y]=Lw(0.3+Math.random()*0.1,0.33); fx.push({kind:"bat",x,y,vx:120+Math.random()*120,vy:-30-Math.random()*50,life:1,decay:0.22,ph:Math.random()*6}); }
+    if(soundOn&&ac&&now-lastThunder>2600){ lastThunder=now; thunder(); }
+  }
+  for(let i=0;i<NLED;i++){
+    let c=[0,0,0];
+    switch(p.fx){
+      case "breathe": { const k=(Math.sin(t*1.2+i*0.15)+1)/2, A=p.c[0], B=p.c[1]; const m=0.35+0.3*Math.sin(t*0.9); c=A.map((v,j)=>(v*k+B[j]*(1-k))*m); break; }
+      case "solid": { const m=0.6+0.2*Math.sin(t*1.5); c=p.c[0].map(v=>v*m); break; }
+      case "rainbow": c=hsv(((i/NLED)+t*0.25)%1); break;
+      case "lightning": { const m=now<boltUntil?(reduceMotion?0.45:1):0.03; c=p.c[0].map(v=>v*m); break; }
+      case "sparkle": case "twinkle": { if(Math.random()<(p.fx==="sparkle"?0.08:0.02)) twk[i]=1; twk[i]*=p.fx==="sparkle"?0.85:0.96; const base=p.fx==="twinkle"?0.25:0.05; c=p.c[0].map(v=>v*Math.min(1,base+twk[i])); break; }
+      case "chase": { const on=Math.floor(i/3+t*4)%2; c=p.c[on]; break; }
+      case "fire": { twk[i]=twk[i]*0.8+Math.random()*0.2; const m=0.3+0.7*twk[i]; c=[255*m,90*m*m,0]; break; }
+      case "aurora": { const k=(Math.sin(i*0.25+t*0.8)+Math.sin(i*0.11-t*0.5))/4+0.5, A=p.c[0], B=p.c[1]; c=A.map((v,j)=>(v*k+B[j]*(1-k))*(0.4+0.4*k)); break; }
+    }
+    leds[i]=c;
+  }
+}
+
+// ============================================================== SCENE ===
+const cv=document.getElementById("cv"); let g=cv.getContext("2d");
+const lc=document.createElement("canvas"), lg=lc.getContext("2d");
+const C={x:400,y:96}, F={x:400,y:468};
+const lerp=(a,b,k)=>a+(b-a)*k;
+const rgba=(c,a)=>`rgba(${c[0]|0},${c[1]|0},${c[2]|0},${a})`;
+const mix=(a,b,k)=>a.map((v,i)=>v+(b[i]-v)*k);
+function Lw(u,v){ return [u*C.x, lerp(lerp(20,C.y,u),lerp(560,F.y,u),v)]; }
+function Rw(u,v){ return [lerp(C.x,800,u), lerp(lerp(C.y,20,u),lerp(F.y,560,u),v)]; }
+function quad(W,u0,u1,v0,v1){ return [W(u0,v0),W(u1,v0),W(u1,v1),W(u0,v1)]; }
+function poly(pts){ g.beginPath(); g.moveTo(pts[0][0],pts[0][1]); for(let i=1;i<pts.length;i++) g.lineTo(pts[i][0],pts[i][1]); g.closePath(); }
+let SX=1,SY=1;
+function fitCanvas(){ const r=cv.getBoundingClientRect(), dpr=Math.min(2,window.devicePixelRatio||1); cv.width=Math.round(r.width*dpr); cv.height=Math.round(r.width*0.75*dpr); lc.width=cv.width; lc.height=cv.height; SX=cv.width/800; SY=cv.height/600; }
+function ledPos(i){ const half=NLED/2; if(i<half){ const k=i/(half-1); return [lerp(14,C.x-14,k),lerp(28,C.y+6,k)]; } const k=(i-half)/(half-1); return [lerp(C.x+14,786,k),lerp(C.y+6,28,k)]; }
+
+// ---- particles
+let parts=[];
+function initParticles(){
+  parts=[];
+  const add=(n,f)=>{ for(let i=0;i<n;i++) parts.push(f(i)); };
+  if(seasonKey==="halloween") add(22,()=>({k:"fog",x:Math.random()*800,y:530+Math.random()*60,r:60+Math.random()*80,vx:4+Math.random()*8}));
+  if(seasonKey==="christmas"||seasonKey==="winter") add(seasonKey==="winter"?90:50,()=>({k:"snow",u:Math.random(),v:Math.random(),s:0.04+Math.random()*0.08,d:Math.random()*6}));
+  if(seasonKey==="fall") add(18,()=>({k:"leaf",x:Math.random()*800,y:Math.random()*600,vy:20+Math.random()*25,a:Math.random()*6,va:(Math.random()-.5)*3,c:[[200,80,20],[220,140,30],[160,40,20]][Math.floor(Math.random()*3)]}));
+  if(seasonKey==="easter") add(5,()=>({k:"fly",x:Math.random()*800,y:150+Math.random()*300,ph:Math.random()*6,c:[[255,170,220],[170,220,255],[255,230,140]][Math.floor(Math.random()*3)]}));
+}
+let confetti=[], fx=[];
+// little bursts: dust from the ceiling hole when the prop lets go, a puff when it lands
+const BURST={halloween:"dust",christmas:"snow",easter:"glitter",fall:"leaf",winter:"snow"};
+function burst(x,y,n,kind=BURST[seasonKey],up=40){
+  for(let i=0;i<(reduceMotion?Math.ceil(n/3):n);i++){ const a=Math.random()*Math.PI*2, sp=30+Math.random()*150;
+    fx.push({kind,x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp*0.5-up,life:1,decay:0.45+Math.random()*0.6,r:1.5+Math.random()*2.5,rot:Math.random()*6,
+      c:kind==="glitter"?hsv(Math.random()):kind==="leaf"?[[200,80,20],[220,140,30],[160,40,20]][i%3]:kind==="dust"?[150,140,130]:[240,245,255]}); }
+}
+function breath(x,y){ fx.push({kind:"breath",x,y,vx:(Math.random()-0.5)*20,vy:-8,life:1,decay:0.7,r:6,rot:0,c:[230,240,255]}); }
+function fxTick(dt){
+  for(const p of fx){ p.life-=p.decay*dt;
+    if(p.kind==="bat"){ p.x+=p.vx*dt; p.y+=p.vy*dt+Math.sin(now/90+p.ph)*0.8; continue; }
+    const grav={dust:90,snow:40,glitter:70,leaf:35,breath:-10}[p.kind]; p.vy+=grav*dt; p.vx*=1-1.8*dt; p.vy*=1-(p.kind==="leaf"?2.5:1.2)*dt;
+    p.x+=p.vx*dt+(p.kind==="leaf"?Math.sin(now/300+p.rot)*30*dt:0); p.y+=p.vy*dt; p.rot+=3*dt; if(p.kind==="breath") p.r+=18*dt; }
+  fx=fx.filter(p=>p.life>0&&p.y<620&&p.x>-40&&p.x<840);
+}
+function drawFx(pass){
+  for(const p of fx){ const a=Math.max(0,Math.min(1,p.life));
+    if(pass==="lit"){ if(p.kind==="glitter"){ g.fillStyle=rgba(p.c,a); g.fillRect(p.x-1.5,p.y-1.5,3,3); } continue; }
+    if(p.kind==="bat"){ if(pass!=="dark") continue; const f=Math.sin(now/45+p.ph); g.fillStyle="#08060b"; g.beginPath(); g.moveTo(p.x,p.y); g.quadraticCurveTo(p.x-9,p.y-10*f,p.x-17,p.y-2); g.quadraticCurveTo(p.x-9,p.y+2,p.x,p.y+3); g.quadraticCurveTo(p.x+9,p.y+2,p.x+17,p.y-2); g.quadraticCurveTo(p.x+9,p.y-10*f,p.x,p.y); g.fill(); continue; }
+    if(pass!=="room") continue;
+    if(p.kind==="leaf"){ g.save(); g.translate(p.x,p.y); g.rotate(p.rot); g.fillStyle=rgba(p.c,a); g.beginPath(); g.ellipse(0,0,6,3,0,0,7); g.fill(); g.restore(); }
+    else if(p.kind==="breath"){ const rg=g.createRadialGradient(p.x,p.y,0,p.x,p.y,p.r); rg.addColorStop(0,rgba(p.c,0.35*a)); rg.addColorStop(1,rgba(p.c,0)); g.fillStyle=rg; g.fillRect(p.x-p.r,p.y-p.r,p.r*2,p.r*2); }
+    else if(p.kind==="glitter"){ g.fillStyle=rgba(p.c,a*0.6); g.fillRect(p.x-1,p.y-1,2,2); }
+    else { g.fillStyle=rgba(p.c,a*(p.kind==="dust"?0.55:0.9)); g.beginPath(); g.arc(p.x,p.y,p.r,0,7); g.fill(); }
+  }
+}
+function partTick(dt){
+  for(const p of parts){
+    if(p.k==="fog"){ if(now-landed<60){ p.push=(p.x<C.x?-1:1)*(120-Math.min(110,Math.abs(p.x-C.x)/3)); } p.push=(p.push||0)*(1-2*dt); p.x+=(p.vx+p.push)*dt; if(p.x-p.r>800) p.x=-p.r; if(p.x+p.r<0) p.x=800+p.r; }
+    else if(p.k==="snow"){ p.v+=p.s*dt; p.u+=Math.sin(now/900+p.d)*0.0008; if(p.v>1) {p.v=0; p.u=Math.random();} }
+    else if(p.k==="leaf"){ p.y+=p.vy*dt; p.x+=Math.sin(now/700+p.a)*20*dt; p.a+=p.va*dt; if(p.y>600){ p.y=-10; p.x=Math.random()*800; } }
+    else if(p.k==="fly"){ p.x+=Math.sin(now/1800+p.ph)*40*dt; p.y+=Math.cos(now/1300+p.ph)*25*dt; }
+  }
+  if(st.wled===4&&confetti.length<90) confetti.push({x:Math.random()*800,y:-10,vy:60+Math.random()*80,a:Math.random()*6,c:hsv(Math.random())});
+  confetti=confetti.filter(c=>{ c.y+=c.vy*dt; c.a+=4*dt; return c.y<610&&!(st.wled!==4&&c.y<0); });
+}
+
+// ---- the room
+function drawRoom(){
+  g.fillStyle=rgba(mix(R.wall,[0,0,0],0.55),1); g.beginPath(); g.moveTo(0,0); g.lineTo(800,0); g.lineTo(800,20); g.lineTo(C.x,C.y); g.lineTo(0,20); g.fill();
+  for(const [W,shade] of [[Lw,1],[Rw,0.82]]){
+    poly(quad(W,0,1,0,0.68)); g.fillStyle=rgba(R.wall.map(v=>v*shade),1); g.fill();
+    g.strokeStyle=rgba(R.pat.map(v=>v*shade),0.9); g.lineWidth=1.2;
+    for(let u=0.02;u<1;u+=0.045){ const a=W(u,0), b=W(u,0.68); g.beginPath(); g.moveTo(a[0],a[1]); g.lineTo(b[0],b[1]); g.stroke(); }
+    // little diamond pattern between stripes
+    g.fillStyle=rgba(R.pat.map(v=>v*shade),0.7);
+    for(let u=0.045;u<1;u+=0.09) for(let v=0.08;v<0.62;v+=0.11){ const [x,y]=W(u,v); const s=lerp(5,2.5,W===Lw?u:1-u); g.beginPath(); g.moveTo(x,y-s); g.lineTo(x+s*0.7,y); g.lineTo(x,y+s); g.lineTo(x-s*0.7,y); g.fill(); }
+    poly(quad(W,0,1,0.68,1)); g.fillStyle=rgba(R.wain.map(v=>v*shade),1); g.fill();
+    for(let u=0.06;u<1;u+=0.12){ poly(quad(W,u,u+0.08,0.73,0.95)); g.strokeStyle=rgba(R.wain.map(v=>v*shade*1.5),1); g.lineWidth=1.5; g.stroke(); }
+    const a=W(0,0.68), b=W(1,0.68); g.strokeStyle=rgba(R.pat.map(v=>v*1.4),1); g.lineWidth=3; g.beginPath(); g.moveTo(a[0],a[1]); g.lineTo(b[0],b[1]); g.stroke();
+  }
+  // floor with boards converging on the corner
+  g.save(); g.beginPath(); g.moveTo(0,560); g.lineTo(F.x,F.y); g.lineTo(800,560); g.lineTo(800,600); g.lineTo(0,600); g.closePath(); g.fillStyle=rgba(R.floor,1); g.fill(); g.clip();
+  g.strokeStyle=rgba(R.floor.map(v=>v*0.6),1); g.lineWidth=1.5;
+  for(let x=-1600;x<=2400;x+=70){ g.beginPath(); g.moveTo(F.x,F.y); g.lineTo(x,900); g.stroke(); }
+  g.restore();
+  g.strokeStyle="rgba(0,0,0,.35)"; g.lineWidth=2; g.beginPath(); g.moveTo(C.x,C.y); g.lineTo(F.x,F.y); g.stroke();
+}
+function drawWindow(flash){
+  const q=quad(Lw,0.18,0.47,0.2,0.5);
+  g.save(); poly(q); g.clip();
+  const sky=g.createLinearGradient(0,q[0][1],0,q[3][1]); sky.addColorStop(0,rgba(mix(R.sky[0],[200,210,255],flash),1)); sky.addColorStop(1,rgba(mix(R.sky[1],[230,230,255],flash),1));
+  g.fillStyle=sky; g.fillRect(0,0,400,400);
+  const [mx,my]=Lw(0.37,0.27); g.fillStyle=rgba(R.moon,1); g.beginPath(); g.arc(mx,my,seasonKey==="fall"?20:14,0,7); g.fill();
+  g.fillStyle=rgba(R.sky[0],1); g.beginPath(); g.arc(mx+6,my-3,seasonKey==="fall"?0:12,0,7); if(seasonKey!=="fall"&&seasonKey!=="easter") g.fill();
+  // bare tree outside
+  g.strokeStyle="rgba(5,4,8,.95)"; g.lineWidth=4; const [bx,by]=Lw(0.24,0.5); g.beginPath(); g.moveTo(bx,by); g.lineTo(bx+4,by-70); g.lineTo(bx-14,by-110); g.moveTo(bx+3,by-60); g.lineTo(bx+28,by-95); g.moveTo(bx-6,by-92); g.lineTo(bx-30,by-104); g.stroke();
+  if(seasonKey==="winter"||seasonKey==="christmas"){ g.fillStyle="rgba(240,245,255,.95)"; g.beginPath(); g.moveTo(q[3][0],q[3][1]); for(let u=0;u<=1;u+=0.1){ const [x,y]=Lw(lerp(0.18,0.47,u),0.5-0.03-0.02*Math.sin(u*9)); g.lineTo(x,y); } g.lineTo(q[2][0],q[2][1]); g.fill(); }
+  for(const p of parts) if(p.k==="snow"){ const [x,y]=Lw(lerp(0.18,0.47,p.u),lerp(0.2,0.5,p.v)); g.fillStyle="rgba(255,255,255,.9)"; g.fillRect(x,y,2,2); }
+  if(flash>0.5&&bolt.length){ g.save(); g.strokeStyle="#fff"; g.lineWidth=2.2; g.shadowColor="#bcd0ff"; g.shadowBlur=14; g.beginPath(); bolt.forEach(([u,v],i)=>{ const [x,y]=Lw(u,v); i?g.lineTo(x,y):g.moveTo(x,y); }); g.stroke(); g.restore(); }
+  g.restore();
+  // frame and cross bars
+  poly(q); g.strokeStyle="#3b2c22"; g.lineWidth=7; g.stroke();
+  g.lineWidth=3; const t=Lw(0.325,0.2), b=Lw(0.325,0.5), l=Lw(0.18,0.35), r=Lw(0.47,0.35); g.beginPath(); g.moveTo(t[0],t[1]); g.lineTo(b[0],b[1]); g.moveTo(l[0],l[1]); g.lineTo(r[0],r[1]); g.stroke();
+  if(seasonKey==="winter"){ q.forEach(([x,y])=>{ const fr=g.createRadialGradient(x,y,0,x,y,34); fr.addColorStop(0,"rgba(230,245,255,.7)"); fr.addColorStop(1,"rgba(230,245,255,0)"); g.fillStyle=fr; g.fillRect(x-34,y-34,68,68); }); }
+  const s1=Lw(0.16,0.505), s2=Lw(0.49,0.505); g.fillStyle="#4a382b"; g.fillRect(s1[0],s1[1],s2[0]-s1[0],7);
+}
+function drawDoor(){
+  const q=quad(Rw,0.55,0.75,0.24,1); poly(q); g.fillStyle="#050407"; g.fill();
+  if(guest.active){ g.save(); poly(q); g.clip(); const [x,y]=Rw(0.65,0.7); const h=g.createRadialGradient(x,y,0,x,y,160); h.addColorStop(0,"rgba(255,190,120,.35)"); h.addColorStop(1,"rgba(255,190,120,0)"); g.fillStyle=h; g.fillRect(x-160,y-160,320,320); g.restore(); }
+  poly(q); g.strokeStyle="#2b2219"; g.lineWidth=6; g.stroke();
+  if(seasonKey==="christmas"){ const [x,y]=Rw(0.65,0.12); g.strokeStyle="#1f6b32"; g.lineWidth=9; g.beginPath(); g.arc(x,y+18,17,0,7); g.stroke(); g.fillStyle="#c41e2a"; g.beginPath(); g.moveTo(x,y+2); g.lineTo(x-9,y-6); g.lineTo(x-9,y+8); g.moveTo(x,y+2); g.lineTo(x+9,y-6); g.lineTo(x+9,y+8); g.fill(); }
+}
+function drawPortrait(eyeLv){
+  const q=quad(Rw,0.12,0.32,0.18,0.47); poly(q); g.fillStyle="#1a1410"; g.fill(); g.strokeStyle="#8a6a2a"; g.lineWidth=6; g.stroke();
+  const [cx,cy]=Rw(0.22,0.31); g.fillStyle="#2d2620"; g.beginPath(); g.ellipse(cx,cy+18,26,30,0,0,7); g.fill(); g.beginPath(); g.arc(cx,cy-6,15,0,7); g.fill();
+  if(seasonKey==="halloween"&&eyeLv>0.5){ emit(cx-5,cy-8,2.5,[255,40,40],eyeLv*0.8); emit(cx+5,cy-8,2.5,[255,40,40],eyeLv*0.8); }
+}
+let emissive=[], lights=[];
+function emit(x,y,r,c,a){ emissive.push({x,y,r,c,a}); }
+function light(x,y,r,c,i){ lights.push({x,y,r,c,i}); }
+function drawDecor(t){
+  if(seasonKey==="halloween"){
+    web(C.x,C.y+4,80,200,340); web(0,22,90,0,80); web(800,22,90,100,180);
+    const fl=0.75+0.25*Math.sin(t*13)*Math.sin(t*7.3);
+    pumpkin(150,552,1.2,fl); pumpkin(250,575,0.8,fl*0.9);
+    [[Lw(0.22,0.505),1],[Lw(0.42,0.505),0.8]].forEach(([[x,y],s])=>{ g.fillStyle="#e8dfc8"; g.fillRect(x-3,y-22*s,6,22*s); const f=0.8+0.2*Math.sin(t*17+x); emit(x,y-26*s,5,[255,190,90],f); light(x,y-26*s,90,[255,170,80],0.35*f); });
+  }
+  if(seasonKey==="christmas"){
+    const bx=150,by=560; const lay=[[90,70,0],[72,70,-55],[52,60,-105],[30,50,-148]];
+    lay.forEach(([w,h,dy])=>{ g.fillStyle="#1d5a2c"; g.beginPath(); g.moveTo(bx-w,by+dy); g.lineTo(bx+w,by+dy); g.lineTo(bx,by+dy-h-20); g.fill(); });
+    g.fillStyle="#4a2e18"; g.fillRect(bx-8,by,16,16);
+    [[-70,8,"#b52430"],[40,10,"#2a5bb5"],[-20,14,"#d8a420"]].forEach(([dx,s,c])=>{ g.fillStyle=c; g.fillRect(bx+dx,by+s-6,34,22); g.fillStyle="#f0e6c8"; g.fillRect(bx+dx+15,by+s-6,4,22); });
+    for(let i=0;i<22;i++){ const k=i/22, row=Math.floor(k*4), y=by-row*52-((i*37)%40); const w=(1-row*0.22)*80*(((i*53)%100)/100-0.5); const tw=0.5+0.5*Math.sin(t*3+i*1.7); const col=[[255,60,60],[255,210,80],[80,170,255],[120,255,140]][i%4]; emit(bx+w,y,3,col,tw); }
+    emit(bx,by-200,8,[255,230,120],0.9); light(bx,by-90,190,[255,200,120],0.45);
+    const a=Lw(0,0.66), b=Lw(1,0.66); for(let k=0;k<1;k+=0.05){ const x=lerp(a[0],b[0],k), y=lerp(a[1],b[1],k)+Math.sin(k*40)*3; g.fillStyle="#1f6b32"; g.beginPath(); g.arc(x,y,5,0,7); g.fill(); }
+  }
+  if(seasonKey==="easter"){
+    [[90,575,[255,170,210]],[130,590,[170,220,255]],[175,570,[255,235,140]],[220,588,[180,240,190]],[600,585,[255,190,140]],[650,575,[210,170,255]],[540,592,[255,170,210]]].forEach(([x,y,c],i)=>{ g.fillStyle=rgba(c,1); g.beginPath(); g.ellipse(x,y,11,14,0,0,7); g.fill(); g.strokeStyle="rgba(255,255,255,.8)"; g.lineWidth=2; g.beginPath(); g.moveTo(x-10,y-2+i%3); g.lineTo(x+10,y-2+i%3); g.stroke(); });
+    const [px,py]=[720,560]; g.fillStyle="#9a5a34"; g.beginPath(); g.moveTo(px-22,py-20); g.lineTo(px+22,py-20); g.lineTo(px+16,py+20); g.lineTo(px-16,py+20); g.fill();
+    for(let i=-2;i<=2;i++){ g.strokeStyle="#3f8a3a"; g.lineWidth=3; g.beginPath(); g.moveTo(px+i*6,py-20); g.lineTo(px+i*9,py-60-Math.abs(i)*6); g.stroke(); g.fillStyle=["#ff6fa3","#ffd34d","#b48cff","#ff9d4d","#ff6fa3"][i+2]; g.beginPath(); g.ellipse(px+i*9,py-66-Math.abs(i)*6,6,9,0,0,7); g.fill(); }
+    for(const W of [Lw,Rw]) for(let u=0.03;u<0.97;u+=0.07){ const a=W(u,0.03), b=W(u+0.05,0.03), m=W(u+0.025,0.1); g.fillStyle=["#ffb3d1","#b3e0ff","#fff0a0","#c8f5c8"][Math.floor(u*14)%4]; g.beginPath(); g.moveTo(a[0],a[1]); g.lineTo(b[0],b[1]); g.lineTo(m[0],m[1]); g.fill(); }
+  }
+  if(seasonKey==="fall"){
+    g.fillStyle="#b89a4a"; g.fillRect(70,540,120,48); g.strokeStyle="#8f7432"; g.lineWidth=2; for(let x=76;x<190;x+=9){ g.beginPath(); g.moveTo(x,542); g.lineTo(x+4,586); g.stroke(); }
+    const fl=0.8+0.2*Math.sin(t*11);
+    pumpkin(130,528,0.9,0); pumpkin(230,575,1.1,0); pumpkin(670,585,0.8,0);
+    for(let i=0;i<26;i++){ g.fillStyle=["#b8501a","#d88c22","#8e2c14"][i%3]; g.beginPath(); g.ellipse(560+((i*37)%160),585+((i*13)%18),7,4,i,0,7); g.fill(); }
+    const [lx,ly]=Rw(0.9,0.86); g.fillStyle="#2a1d10"; g.fillRect(lx-8,ly-34,16,34); emit(lx,ly-42,10,[255,170,60],fl); light(lx,ly-42,150,[255,150,50],0.45*fl);
+  }
+  if(seasonKey==="winter"){
+    for(const W of [Lw,Rw]) for(let u=0.02;u<0.98;u+=0.035){ const [x,y]=W(u,0.012); const h=10+((u*977)%1)*26; g.fillStyle="rgba(215,235,255,.85)"; g.beginPath(); g.moveTo(x-4,y); g.lineTo(x+4,y); g.lineTo(x,y+h); g.fill(); }
+    g.fillStyle="#e8f0f8"; g.beginPath(); g.ellipse(650,590,90,18,0,0,7); g.fill(); g.beginPath(); g.arc(660,555,18,0,7); g.fill(); g.beginPath(); g.arc(660,526,13,0,7); g.fill();
+    g.fillStyle="#222"; g.fillRect(654,522,3,3); g.fillRect(663,522,3,3); g.fillStyle="#e06a20"; g.beginPath(); g.moveTo(659,527); g.lineTo(674,529); g.lineTo(659,531); g.fill();
+    const fl=0.85+0.15*Math.sin(t*9); g.fillStyle="#1d1d22"; g.fillRect(120,548,30,36); emit(135,563,9,[255,190,110],fl); light(135,560,150,[255,180,110],0.4*fl);
+  }
+}
+function web(x,y,len,a0,a1){
+  g.strokeStyle="rgba(220,220,230,.35)"; g.lineWidth=1;
+  const n=7, ang=[]; for(let i=0;i<n;i++) ang.push((a0+(a1-a0)*i/(n-1))*Math.PI/180);
+  ang.forEach(a=>{ g.beginPath(); g.moveTo(x,y); g.lineTo(x+Math.cos(a)*len,y+Math.sin(a)*len*0.8); g.stroke(); });
+  for(let r=0.25;r<=1;r+=0.22){ g.beginPath(); ang.forEach((a,i)=>{ const px=x+Math.cos(a)*len*r, py=y+Math.sin(a)*len*r*0.8+(i%2?3:0); i?g.lineTo(px,py):g.moveTo(px,py); }); g.stroke(); }
+}
+function pumpkin(x,y,s,glow){
+  g.fillStyle="#d4631a"; for(let k=-1;k<=1;k++){ g.beginPath(); g.ellipse(x+k*12*s,y,16*s,20*s,0,0,7); g.fill(); }
+  g.fillStyle="#3d6a1e"; g.fillRect(x-3*s,y-26*s,6*s,9*s);
+  if(glow>0){ const col=[255,200,60]; g.fillStyle=rgba(col,0.4+0.6*glow);
+    g.beginPath(); g.moveTo(x-14*s,y-6*s); g.lineTo(x-6*s,y-6*s); g.lineTo(x-10*s,y-13*s); g.fill(); g.beginPath(); g.moveTo(x+14*s,y-6*s); g.lineTo(x+6*s,y-6*s); g.lineTo(x+10*s,y-13*s); g.fill();
+    g.beginPath(); g.moveTo(x-15*s,y+4*s); for(let i=0;i<=6;i++) g.lineTo(x-15*s+i*5*s,y+(i%2?10:4)*s); g.lineTo(x+15*s,y+12*s); g.lineTo(x-15*s,y+12*s); g.fill();
+    emit(x,y,14*s,[255,170,40],glow*0.6); light(x,y,150*s,[255,140,30],0.5*glow); }
+}
+
+// ---- the prop
+let EX=0,EY=0,ES=1;
+let eyePts=[];
+function eyeAt(lx,ly,lv,col,r){ const x=EX+lx*ES, y=EY+ly*ES; if(r>=3.5&&lv>0.5) eyePts.push({x,y,lv,col}); if(lv>0.02){ emit(x,y,r*ES*0.9,col,lv); light(x,y,60+170*lv,col,0.55*lv); } else { g.fillStyle="#120e14"; g.beginPath(); g.arc(lx,ly,r*0.6,0,7); g.fill(); } }
+function grad(y0,y1,c0,c1){ const gr=g.createLinearGradient(0,y0,0,y1); gr.addColorStop(0,c0); gr.addColorStop(1,c1); return gr; }
+function drawChar(x,y,eyes){
+  const t=now/1000, moving=Math.min(1,Math.abs(st.vel)/800), col=S.eye;
+  EX=x; EY=y; ES=1.55;
+  g.save(); g.translate(x,y); g.scale(ES,ES);
+  if(S.draw==="spider"){
+    g.lineCap="round"; g.lineJoin="round";
+    for(let side=-1;side<=1;side+=2) for(let i=0;i<4;i++){
+      const a=(-0.9+i*0.55)+Math.sin(t*(6+moving*14)+i*1.3)*(0.08+moving*0.25);
+      const kx=side*Math.cos(a)*36, ky=Math.sin(a)*28-8;
+      g.strokeStyle="#16101a"; g.lineWidth=4.5; g.beginPath(); g.moveTo(side*8,6); g.lineTo(kx,ky-16); g.lineTo(kx*1.45,ky+26); g.stroke();
+      g.strokeStyle="rgba(120,90,140,.35)"; g.lineWidth=1.2; g.beginPath(); g.moveTo(side*8,5); g.lineTo(kx,ky-17); g.stroke();
+    }
+    g.fillStyle=grad(-20,45,"#3a2c44","#0d0a10"); g.beginPath(); g.ellipse(0,20,22,25,0,0,7); g.fill();
+    g.fillStyle="#9c1a1a"; g.beginPath(); g.moveTo(0,8); g.lineTo(7,20); g.lineTo(0,34); g.lineTo(-7,20); g.fill();
+    g.fillStyle=grad(-20,8,"#3a2c44","#120d16"); g.beginPath(); g.ellipse(0,-6,15,13,0,0,7); g.fill();
+    g.fillStyle="#e8e0d0"; g.beginPath(); g.moveTo(-4,5); g.lineTo(-2,12); g.lineTo(-1,5); g.moveTo(4,5); g.lineTo(2,12); g.lineTo(1,5); g.fill();
+    eyeAt(-6,-8,eyes[0],col,4.5); eyeAt(6,-8,eyes[1],col,4.5); eyeAt(-11,-4,eyes[0]*0.6,col,2.5); eyeAt(11,-4,eyes[1]*0.6,col,2.5);
+  } else if(S.draw==="santa"){
+    g.strokeStyle="#f0c8a0"; g.lineWidth=6; g.lineCap="round";
+    g.beginPath(); g.moveTo(-14,4); g.lineTo(-3,-30); g.moveTo(14,4); g.lineTo(3,-30); g.stroke();
+    g.fillStyle=grad(0,52,"#e03a34","#8e1416"); g.beginPath(); g.ellipse(0,26,24,26,0,0,7); g.fill();
+    g.fillStyle="#f6f2ea"; g.fillRect(-3,4,6,44);
+    g.fillStyle="#1a1212"; g.fillRect(-24,26,48,7); g.fillStyle="#e2b43a"; g.fillRect(-5,25,10,9);
+    const kick=Math.sin(t*8)*moving*10; g.fillStyle="#1a1212"; g.fillRect(-16+kick*0.3,48,10,16); g.fillRect(6-kick*0.3,48,10,16);
+    g.fillStyle="#f2c9a8"; g.beginPath(); g.arc(0,-4,13,0,7); g.fill();
+    g.fillStyle="#fbfbf8"; g.beginPath(); g.arc(0,3,14,0,Math.PI); g.fill(); g.beginPath(); g.ellipse(-6,0,7,3,0.3,0,7); g.ellipse(6,0,7,3,-0.3,0,7); g.fill();
+    const sw=Math.sin(t*3)*3; g.fillStyle=grad(-32,-10,"#e03a34","#a01a1c"); g.beginPath(); g.moveTo(-14,-10); g.lineTo(14,-10); g.quadraticCurveTo(16,-26,20+sw,-30); g.fill();
+    g.fillStyle="#fbfbf8"; g.fillRect(-15,-13,30,5); g.beginPath(); g.arc(20+sw,-31,4,0,7); g.fill();
+    eyeAt(-5,-6,0.25+eyes[0]*0.4,[255,240,210],2.6); eyeAt(5,-6,0.25+eyes[0]*0.4,[255,240,210],2.6); eyeAt(0,0,eyes[1],col,3.6);
+  } else if(S.draw==="bunny"){
+    const ear=Math.sin(t*5)*0.15+moving*0.3;
+    for(const [s,dx] of [[-1,-6],[1,6]]){ g.save(); g.rotate(s*(0.25+ear)); g.fillStyle="#f4f0f8"; g.beginPath(); g.ellipse(dx,-34,6,20,0,0,7); g.fill(); g.fillStyle="#ffb6d6"; g.beginPath(); g.ellipse(dx,-34,2.5,14,0,0,7); g.fill(); g.restore(); }
+    g.fillStyle=grad(0,50,"#ffffff","#d8d0e4"); g.beginPath(); g.ellipse(0,26,20,22,0,0,7); g.fill();
+    g.fillStyle=grad(-20,8,"#ffffff","#e6e0ee"); g.beginPath(); g.arc(0,-6,14,0,7); g.fill();
+    g.fillStyle="#ff8fb8"; g.beginPath(); g.arc(0,0,2.5,0,7); g.fill(); g.strokeStyle="#c9a0b8"; g.lineWidth=1; g.beginPath(); g.moveTo(-9,1); g.lineTo(-3,1); g.moveTo(9,1); g.lineTo(3,1); g.stroke();
+    if(st.show==="eggs"||st.pos>st.drop*0.6){ g.strokeStyle="#8a5a2a"; g.lineWidth=3; g.beginPath(); g.arc(0,54,14,Math.PI,0); g.stroke(); g.fillStyle="#a8743c"; g.fillRect(-15,54,30,12);
+      [[255,170,200],[150,210,255],[255,230,120]].forEach((c,i)=>{ g.fillStyle=rgba(c,1); g.beginPath(); g.ellipse(-8+i*8,53,4,5,0,0,7); g.fill(); }); }
+    eyeAt(-5,-8,eyes[0],col,3.5); eyeAt(5,-8,eyes[1],col,3.5);
+  } else if(S.draw==="squirrel"){
+    const wag=Math.sin(t*(4+moving*10))*0.2;
+    g.save(); g.rotate(wag); g.fillStyle=grad(-40,30,"#c27a3c","#7a4218"); g.beginPath(); g.moveTo(10,30); g.bezierCurveTo(64,30,58,-44,20,-32); g.bezierCurveTo(42,-10,30,20,8,18); g.fill(); g.restore();
+    g.fillStyle=grad(-10,44,"#b8743a","#7a4a1e"); g.beginPath(); g.ellipse(0,22,16,22,0,0,7); g.fill(); g.beginPath(); g.arc(0,-6,12,0,7); g.fill();
+    g.beginPath(); g.moveTo(-9,-14); g.lineTo(-5,-25); g.lineTo(-2,-14); g.moveTo(9,-14); g.lineTo(5,-25); g.lineTo(2,-14); g.fill();
+    g.fillStyle="#f0d8b8"; g.beginPath(); g.ellipse(0,26,9,14,0,0,7); g.fill();
+    g.fillStyle="#9a6a24"; g.beginPath(); g.ellipse(0,12,6,7,0,0,7); g.fill(); g.fillStyle="#5a3a14"; g.fillRect(-6,4,12,4);
+    eyeAt(-5,-8,eyes[0],col,3.5); eyeAt(5,-8,eyes[1],col,3.5);
+  } else {
+    const shiver=st.show==="freeze"?Math.sin(t*60)*2:0; g.translate(shiver,0); EX+=shiver*ES;
+    for(let i=0;i<16;i++){ const a=i/16*Math.PI*2; g.fillStyle=i%2?"#eef3fa":"#dfe8f3"; g.beginPath(); g.arc(Math.cos(a)*22,22+Math.sin(a)*26,11,0,7); g.fill(); }
+    g.fillStyle=grad(-6,50,"#f4f8fc","#c8d4e2"); g.beginPath(); g.ellipse(0,22,24,28,0,0,7); g.fill(); g.beginPath(); g.arc(0,-8,17,0,7); g.fill();
+    g.strokeStyle="#eef3fa"; g.lineWidth=8; g.lineCap="round"; g.beginPath(); g.moveTo(-18,10); g.lineTo(-6,-30); g.moveTo(18,10); g.lineTo(6,-30); g.stroke();
+    g.fillStyle="#5d86ad"; g.beginPath(); g.ellipse(0,-6,11,10,0,0,7); g.fill();
+    g.fillStyle="#1d2430"; g.beginPath(); g.ellipse(0,1,5,st.show==="yeti"&&st.pos>st.drop*0.8?5:2,0,0,7); g.fill();
+    eyeAt(-5,-9,eyes[0],col,4); eyeAt(5,-9,eyes[1],col,4);
+  }
+  g.restore();
+}
+// Guests: a few kinds of party guest in seasonal clothes, lit by the hall
+// light from the doorway so they read clearly in the dark room.
+const OUTFIT={
+  halloween:{top:"#e8781e",legs:"#2b2f45",hat:"witch",hatC:"#2a1d3a"},
+  christmas:{top:"#c8262e",legs:"#30384a",hat:"santa",hatC:"#d42a32"},
+  easter:{top:"#f2d24a",legs:"#5a6fb0",hat:"ears",hatC:"#ffffff"},
+  fall:{top:"#3f7a3a",legs:"#5a3a24",hat:"beanie",hatC:"#c0571e"},
+  winter:{top:"#2f78c8",legs:"#2a2a38",hat:"bobble",hatC:"#e8eef6"}};
+const GUESTS=[{h:1,hair:"#3a2416",skin:"#f1c7a0",phone:false},{h:0.74,hair:"#b5793a",skin:"#e8b48a",phone:false,kid:true},{h:1.06,hair:"#151018",skin:"#9c6a48",phone:true}];
+let guestN=0;
+function sendGuest(){
+  Object.assign(guest,{active:true,t0:now,said:null,reactAt:-1e9,type:GUESTS[guestN++%GUESTS.length],mood:null,leaveAt:0});
+  playBuf("sim/door",0.8); playBuf("sim/footsteps",0.55,{when:0.9});
+}
+function guestPos(){
+  const k=Math.min(1,(now-guest.t0)/2200); let x=lerp(660,500,k), walking=k<1;
+  if(guest.leaveAt&&now>guest.leaveAt){ const kk=Math.min(1,(now-guest.leaveAt)/(guest.mood==="scared"?700:1800)); x=lerp(guest.xStop,700,kk); walking=true; if(kk>=1) guest.active=false; }
+  return {x,walking,sc:lerp(0.85,1.15,Math.min(1,(x>=500?(660-x)/160:1)))*guest.type.h};
+}
+function drawGuest(){
+  if(!guest.active) return;
+  const P=guestPos(), O=OUTFIT[seasonKey], T=guest.type, sc=P.sc, x=guest.x=P.x;
+  const jump=Math.max(0,guest.jump-now)/600, jy=Math.sin(jump*Math.PI)*28*(guest.mood==="scared"?1:0.5), base=596-jy;
+  const scared=guest.mood==="scared"&&now-guest.reactAt<2600, laughing=guest.mood==="laugh"&&now-guest.reactAt<3000;
+  const bob=P.walking?Math.abs(Math.sin(now/160))*3*sc:laughing?Math.abs(Math.sin(now/90))*3*sc:0;
+  const hy=base-150*sc-bob, face=P.walking&&guest.leaveAt?1:-1;
+  // hall light behind them, and a key light on them so they never vanish in the dark
+  light(x,base-90*sc,170*sc,[255,222,185],0.62); light(x-30,hy,90,[255,235,210],0.3);
+  g.save(); g.lineJoin="round"; g.lineCap="round";
+  const rim="rgba(255,236,205,.7)";
+  // legs
+  const stride=P.walking?Math.sin(now/160)*9*sc:0;
+  g.strokeStyle=O.legs; g.lineWidth=12*sc; g.beginPath(); g.moveTo(x-8*sc,base-55*sc-bob); g.lineTo(x-8*sc+stride,base-4); g.moveTo(x+8*sc,base-55*sc-bob); g.lineTo(x+8*sc-stride,base-4); g.stroke();
+  g.fillStyle="#141018"; g.fillRect(x-15*sc+stride,base-7,15*sc,7); g.fillRect(x+1*sc-stride,base-7,15*sc,7);
+  // body
+  g.fillStyle=O.top; g.beginPath(); g.roundRect(x-22*sc,base-130*sc-bob,44*sc,80*sc,14*sc); g.fill(); g.strokeStyle=rim; g.lineWidth=1.6; g.stroke();
+  if(seasonKey==="fall"){ g.strokeStyle="rgba(20,30,15,.45)"; g.lineWidth=2; for(let i=-1;i<=1;i++){ g.beginPath(); g.moveTo(x+i*12*sc,base-128*sc-bob); g.lineTo(x+i*12*sc,base-52*sc-bob); g.stroke(); } }
+  if(seasonKey==="christmas"){ g.fillStyle="#f4efe6"; for(let i=0;i<5;i++) g.fillRect(x-20*sc+i*9*sc,base-100*sc-bob,5*sc,5*sc); }
+  // arms
+  g.strokeStyle=O.top; g.lineWidth=10*sc;
+  const sw=P.walking?Math.sin(now/160)*10*sc:0, sy=base-120*sc-bob;
+  g.beginPath();
+  if(scared){ g.moveTo(x-19*sc,sy); g.lineTo(x-38*sc,sy-38*sc); g.lineTo(x-32*sc,sy-62*sc); g.moveTo(x+19*sc,sy); g.lineTo(x+38*sc,sy-38*sc); g.lineTo(x+32*sc,sy-62*sc); }
+  else if(laughing){ g.moveTo(x-19*sc,sy); g.lineTo(x-28*sc,sy+30*sc); g.lineTo(x-6*sc,sy+44*sc); g.moveTo(x+19*sc,sy); g.lineTo(x+28*sc,sy+30*sc); g.lineTo(x+6*sc,sy+44*sc); }
+  else if(T.phone){ g.moveTo(x-19*sc,sy); g.lineTo(x-26*sc+sw,sy+48*sc); g.moveTo(x+19*sc,sy); g.lineTo(x+20*sc,sy+26*sc); g.lineTo(x+4*sc,sy-6*sc); }
+  else { g.moveTo(x-19*sc,sy); g.lineTo(x-26*sc+sw,sy+48*sc); g.moveTo(x+19*sc,sy); g.lineTo(x+26*sc-sw,sy+48*sc); }
+  g.stroke();
+  // hands
+  g.fillStyle=T.skin; const hands=scared?[[-32,-62],[32,-62]]:laughing?[[-6,44],[6,44]]:T.phone?[[-26,48],[4,-6]]:[[-26,48],[26,48]];
+  hands.forEach(([dx,dy])=>{ g.beginPath(); g.arc(x+dx*sc+(dy===48?(dx<0?sw:-sw):0),sy+dy*sc,5*sc,0,7); g.fill(); });
+  if(T.phone&&!scared&&!laughing){ g.fillStyle="#111"; g.fillRect(x-2*sc,sy-22*sc,10*sc,16*sc); emit(x+3*sc,sy-14*sc,4*sc,[170,210,255],0.8); light(x+3*sc,sy-14*sc,70,[170,210,255],0.35); }
+  // head
+  g.fillStyle=T.skin; g.beginPath(); g.arc(x,hy,17*sc,0,7); g.fill(); g.strokeStyle=rim; g.lineWidth=1.6; g.stroke();
+  g.fillStyle=T.hair; g.beginPath();
+  if(scared){ for(let i=-3;i<=3;i++){ g.moveTo(x+i*5*sc-3*sc,hy-12*sc); g.lineTo(x+i*6*sc,hy-30*sc); g.lineTo(x+i*5*sc+3*sc,hy-12*sc); } g.fill(); }
+  else { g.arc(x,hy-3*sc,17.5*sc,Math.PI*1.02,Math.PI*1.98); g.fill(); }
+  // face (looks at the prop, which is to the left)
+  const ex=x-4*sc*(-face), eo=scared?3.4:2.4;
+  g.fillStyle="#fff"; g.beginPath(); g.arc(ex-6*sc,hy-1*sc,eo*sc,0,7); g.arc(ex+6*sc,hy-1*sc,eo*sc,0,7); g.fill();
+  g.fillStyle="#1a1414"; g.beginPath(); g.arc(ex-6*sc+face*0.8,hy-1*sc,1.4*sc,0,7); g.arc(ex+6*sc+face*0.8,hy-1*sc,1.4*sc,0,7); g.fill();
+  g.strokeStyle="#5a2a22"; g.fillStyle="#5a1a1a"; g.lineWidth=2*sc;
+  if(scared){ g.beginPath(); g.ellipse(ex,hy+9*sc,4*sc,6*sc,0,0,7); g.fill(); g.beginPath(); g.moveTo(ex-10*sc,hy-9*sc); g.lineTo(ex-3*sc,hy-11*sc); g.moveTo(ex+10*sc,hy-9*sc); g.lineTo(ex+3*sc,hy-11*sc); g.stroke(); }
+  else if(laughing){ g.beginPath(); g.arc(ex,hy+5*sc,7*sc,0.1,Math.PI-0.1); g.closePath(); g.fill(); }
+  else { g.beginPath(); g.arc(ex,hy+5*sc,5*sc,0.3,Math.PI-0.3); g.stroke(); }
+  // seasonal hat
+  g.fillStyle=O.hatC;
+  if(O.hat==="witch"){ g.beginPath(); g.ellipse(x,hy-13*sc,26*sc,6*sc,0,0,7); g.fill(); g.beginPath(); g.moveTo(x-14*sc,hy-14*sc); g.lineTo(x+14*sc,hy-14*sc); g.lineTo(x+10*sc,hy-52*sc); g.fill(); g.fillStyle="#e8a11e"; g.fillRect(x-13*sc,hy-20*sc,26*sc,5*sc); }
+  else if(O.hat==="santa"){ g.beginPath(); g.moveTo(x-17*sc,hy-11*sc); g.lineTo(x+17*sc,hy-11*sc); g.quadraticCurveTo(x+12*sc,hy-40*sc,x+26*sc,hy-30*sc); g.fill(); g.fillStyle="#fbfbf8"; g.fillRect(x-18*sc,hy-15*sc,36*sc,6*sc); g.beginPath(); g.arc(x+26*sc,hy-30*sc,4.5*sc,0,7); g.fill(); }
+  else if(O.hat==="ears"){ [-1,1].forEach(sd=>{ g.fillStyle="#fff"; g.beginPath(); g.ellipse(x+sd*8*sc,hy-34*sc,5*sc,15*sc,sd*0.2,0,7); g.fill(); g.fillStyle="#ffb6d6"; g.beginPath(); g.ellipse(x+sd*8*sc,hy-34*sc,2.2*sc,10*sc,sd*0.2,0,7); g.fill(); }); }
+  else if(O.hat==="beanie"){ g.beginPath(); g.arc(x,hy-6*sc,18*sc,Math.PI,0); g.fill(); g.fillStyle="#8e3a14"; g.fillRect(x-18*sc,hy-9*sc,36*sc,5*sc); }
+  else if(O.hat==="bobble"){ g.beginPath(); g.arc(x,hy-6*sc,18*sc,Math.PI,0); g.fill(); g.fillStyle="#c8262e"; g.fillRect(x-18*sc,hy-12*sc,36*sc,4*sc); g.fillStyle="#fff"; g.beginPath(); g.arc(x,hy-25*sc,6*sc,0,7); g.fill(); g.fillStyle="#e8eef6"; g.fillRect(x-14*sc,sy-6*sc,28*sc,8*sc); }
+  g.restore();
+  if(guest.said&&now-guest.said.t0<2200) bubble(x+10,base-210*sc,guest.said.text,true);
+}
+// Big shadow of the prop thrown on the right wall by the candles and lamps.
+const shc=document.createElement("canvas"); shc.width=240; shc.height=260; const shx=shc.getContext("2d");
+function wallShadow(x,y,eyes,strength){
+  const keepE=emissive.length, keepL=lights.length, keepP=eyePts.length, main=g, ex=EX, ey=EY;
+  shx.setTransform(1,0,0,1,0,0); shx.globalCompositeOperation="source-over"; shx.clearRect(0,0,240,260);
+  g=shx; try{ drawChar(120,120,eyes); } finally { g=main; }
+  emissive.length=keepE; lights.length=keepL; eyePts.length=keepP; EX=ex; EY=ey;
+  shx.globalCompositeOperation="source-in"; shx.fillStyle="#000"; shx.fillRect(0,0,240,260);
+  const s=1.9, wob=Math.sin(now/90)*2+Math.sin(now/37);
+  g.save(); poly(quad(Rw,0,1,0,0.7)); g.clip(); g.globalAlpha=0.16*strength;
+  for(const o of [-3,0,3]) g.drawImage(shc,x+120-120*s+o+wob,y-30-120*s,240*s,260*s);
+  g.restore();
+}
+function bubble(x,y,text,right){
+  g.font="700 17px 'Atkinson Hyperlegible',sans-serif"; const w=g.measureText(text).width+22;
+  const bx=Math.max(8,Math.min(792-w,right?x-w/2:x+46));
+  g.fillStyle="rgba(250,246,255,0.96)"; g.beginPath(); g.roundRect(bx,y-17,w,34,12); g.fill();
+  g.fillStyle="#140f1c"; g.fillText(text,bx+11,y+6);
+}
+// grain tile, made once
+const grain=document.createElement("canvas"); grain.width=grain.height=128; { const gg=grain.getContext("2d"), id=gg.createImageData(128,128); for(let i=0;i<id.data.length;i+=4){ const v=Math.random()*255; id.data[i]=id.data[i+1]=id.data[i+2]=v; id.data[i+3]=255; } gg.putImageData(id,0,0); }
+let grainPat=null, frost=0;
+
+function frame(ts){
+  const dt=Math.min(0.05,(ts-lastT)/1000); lastT=ts; now+=dt*1000;
+  physics(dt); showTick(); triggers(); wledTick(); partTick(dt); fxTick(dt); ambientTick();
+  if(guest.active&&guest.x<590&&guest.x>480) pirHot=now+300;
+  const frac=st.pos/st.drop;
+  if(Math.abs(prevVel)>1200&&Math.abs(st.vel)<10&&frac>0.9){ if(!reduceMotion) shakeUntil=now+380; landed=now; burst(C.x,lerp(C.y+34,430,frac)+40,26); }
+  if(prevFrac<0.03&&st.vel>700) burst(C.x,C.y+12,22,BURST[seasonKey],-20);
+  if(seasonKey==="winter"&&st.show&&frac>0.75&&Math.random()<0.12) breath(C.x+(Math.random()-0.5)*6,lerp(C.y+34,430,frac)-2);
+  prevVel=st.vel; prevFrac=frac;
+  if(guest.active&&!guest.leaveAt&&frac>0.75&&now-guest.reactAt>3000&&now-guest.t0>1500){
+    guest.reactAt=now; guest.jump=now+600;
+    const funny=["peekaboo","naughty","peek","hop","jingle","disco","shuffle","boogie","eggs","bells","stuck","freeze"].includes(st.show)||seasonKey==="easter";
+    const lines=funny?["haha!","awww!","so cute!","LOL","again!"]:["AAAH!","NOPE!","WHAT?!","EEEK!","MOM!"];
+    guest.said={text:lines[Math.floor(Math.random()*lines.length)],t0:now};
+    funny?score.laughed++:score.scared++;
+    guest.mood=funny?"laugh":"scared"; guest.xStop=guest.x; guest.leaveAt=now+(funny?3200:2200);
+    playBuf(funny?(Math.random()<0.5?"sim/laugh-guest":"sim/laugh-guest2"):(Math.random()<0.5?"sim/gasp":"sim/gasp2"),0.75,{when:0.1});
+  }
+  if(guest.active&&!guest.leaveAt&&now-guest.t0>14000){ guest.xStop=guest.x; guest.leaveAt=now; guest.mood=null; }
+
+  // light from the strip, in 8 blobs per side
+  let avg=[0,0,0]; leds.forEach(c=>{avg[0]+=c[0];avg[1]+=c[1];avg[2]+=c[2]}); avg=avg.map(v=>v/NLED);
+  const stripI=(avg[0]+avg[1]+avg[2])/(3*255);
+  const flash=S.wled[st.wled-1].fx==="lightning"&&now<boltUntil?(reduceMotion?0.3:1):0;
+  lights=[]; emissive=[]; eyePts=[];
+  for(let gI=0;gI<14;gI++){ const i0=gI*4; let c=[0,0,0]; for(let j=0;j<4;j++){ const l=leds[i0+j]; c[0]+=l[0]/4;c[1]+=l[1]/4;c[2]+=l[2]/4; } const [x,y]=ledPos(i0+1.5); const b=(c[0]+c[1]+c[2])/765; if(b>0.01) light(x,y+40,230,c.map(v=>Math.min(255,v/Math.max(b,0.2))),Math.min(1,b*1.6)); }
+  const [wx,wy]=Lw(0.33,0.36); light(wx,wy+40,170,R.moon,0.22+flash*0.5);
+  if(flash) light(400,300,700,[230,235,255],0.6*flash);
+
+  const sh=now<shakeUntil?(shakeUntil-now)/380*6:0;
+  g.setTransform(SX,0,0,SY,(Math.random()-0.5)*sh*SX,(Math.random()-0.5)*sh*SY);
+  g.fillStyle="#000"; g.fillRect(-20,-20,840,640);
+  drawRoom(); drawWindow(flash); drawDoor();
+  const eyes=eyeLevels();
+  drawPortrait(Math.max(eyes[0],eyes[1]));
+  drawDecor(now/1000);
+  for(const p of parts){ if(p.k==="leaf"){ g.save(); g.translate(p.x,p.y); g.rotate(p.a); g.fillStyle=rgba(p.c,1); g.beginPath(); g.ellipse(0,0,8,4,0,0,7); g.fill(); g.restore(); }
+    if(p.k==="fly"){ const f=Math.abs(Math.sin(now/90+p.ph)); g.fillStyle=rgba(p.c,1); g.beginPath(); g.ellipse(p.x-5*f,p.y,6*f+1,4,0,0,7); g.ellipse(p.x+5*f,p.y,6*f+1,4,0,0,7); g.fill(); } }
+  // disco ball in party mode
+  if(st.wled===4){ const [dx,dy]=[250,128]; g.strokeStyle="#888"; g.lineWidth=1; g.beginPath(); g.moveTo(dx,20); g.lineTo(dx,dy-16); g.stroke();
+    g.fillStyle="#b8b8c8"; g.beginPath(); g.arc(dx,dy,16,0,7); g.fill(); for(let i=0;i<6;i++){ emit(dx-10+((i*7+now/40)%20),dy-10+((i*11)%20),2,[255,255,255],0.8); }
+    for(let i=0;i<16;i++){ const a=now/1400+i*0.39, rr=150+((i*73)%250); const x=dx+Math.cos(a)*rr*1.4, y=dy+80+Math.sin(a*1.3+i)*rr*0.6; if(y<560&&y>20) emit(x,y,4,hsv(i/16),0.7); } }
+  // the line and the prop's soft shadow
+  const y=lerp(C.y+34,430,frac);
+  g.strokeStyle="rgba(230,230,240,.22)"; g.lineWidth=1; g.beginPath(); g.moveTo(C.x,C.y+10); g.lineTo(C.x,y-14); g.stroke();
+  g.fillStyle="#050407"; g.fillRect(C.x-17,C.y-8,34,18);
+  const shd=g.createRadialGradient(C.x+10,y+70,0,C.x+10,y+70,80); shd.addColorStop(0,`rgba(0,0,0,${0.25+stripI*0.4})`); shd.addColorStop(1,"rgba(0,0,0,0)"); g.fillStyle=shd; g.fillRect(C.x-80,y-10,180,170);
+  const candle=seasonKey==="halloween"||seasonKey==="fall"||seasonKey==="winter"?1:0.6;
+  wallShadow(C.x,y,eyes,candle*(0.8+0.2*Math.sin(now/70)));
+  drawChar(C.x,y,eyes);
+  drawGuest();
+  drawFx("room");
+  // PIR
+  g.fillStyle="#d9d4de"; g.beginPath(); g.arc(240,118,9,Math.PI,0); g.fill(); g.fillRect(231,118,18,6);
+
+  // darkness with holes punched out by every light
+  lg.setTransform(SX,0,0,SY,0,0); lg.globalCompositeOperation="source-over"; lg.clearRect(0,0,800,600);
+  lg.fillStyle=`rgba(4,3,8,${0.9-Math.min(0.35,stripI*0.5)})`; lg.fillRect(0,0,800,600);
+  lg.globalCompositeOperation="destination-out";
+  for(const L of lights){ const rg=lg.createRadialGradient(L.x,L.y,0,L.x,L.y,L.r); rg.addColorStop(0,`rgba(0,0,0,${Math.min(1,L.i)})`); rg.addColorStop(1,"rgba(0,0,0,0)"); lg.fillStyle=rg; lg.fillRect(L.x-L.r,L.y-L.r,L.r*2,L.r*2); }
+  g.setTransform(1,0,0,1,0,0); g.drawImage(lc,0,0);
+  g.setTransform(SX,0,0,SY,0,0);
+  g.save(); g.globalCompositeOperation="lighter";
+  for(const L of lights){ const rg=g.createRadialGradient(L.x,L.y,0,L.x,L.y,L.r); rg.addColorStop(0,rgba(L.c,0.16*L.i)); rg.addColorStop(1,rgba(L.c,0)); g.fillStyle=rg; g.fillRect(L.x-L.r,L.y-L.r,L.r*2,L.r*2); }
+  // emissive things: LEDs, eyes, flames, bulbs
+  leds.forEach((c,i)=>{ const [x,y]=ledPos(i); const rg=g.createRadialGradient(x,y,0,x,y,15); rg.addColorStop(0,rgba(c,0.9)); rg.addColorStop(1,rgba(c,0)); g.fillStyle=rg; g.fillRect(x-15,y-15,30,30); g.fillStyle=rgba(c.map(v=>Math.min(255,v+70)),1); g.fillRect(x-2,y-2,4,4); });
+  for(const e of emissive){ const R2=e.r*4.5; const rg=g.createRadialGradient(e.x,e.y,0,e.x,e.y,R2); rg.addColorStop(0,rgba(e.c,0.95*e.a)); rg.addColorStop(0.25,rgba(e.c,0.45*e.a)); rg.addColorStop(1,rgba(e.c,0)); g.fillStyle=rg; g.fillRect(e.x-R2,e.y-R2,R2*2,R2*2); g.fillStyle=rgba(e.c.map(v=>v*0.4+153*e.a),Math.min(1,e.a*1.2)); g.beginPath(); g.arc(e.x,e.y,e.r*0.55,0,7); g.fill(); }
+  for(const c of confetti){ g.save(); g.translate(c.x,c.y); g.rotate(c.a); g.fillStyle=rgba(c.c,0.8); g.fillRect(-3,-1.5,6,3); g.restore(); }
+  // eye beams cutting through the haze when the eyes are bright and the prop is down
+  if(frac>0.35) for(const e of eyePts){ const tx=guest.active?guest.x:e.x+(e.x<C.x?-90:90), ty=guest.active?470:590; const ang=Math.atan2(ty-e.y,tx-e.x), w=34;
+    const bg=g.createLinearGradient(e.x,e.y,tx,ty); bg.addColorStop(0,rgba(e.col,0.22*e.lv)); bg.addColorStop(1,rgba(e.col,0));
+    g.fillStyle=bg; g.beginPath(); g.moveTo(e.x,e.y); g.lineTo(tx+Math.sin(ang)*w,ty-Math.cos(ang)*w); g.lineTo(tx-Math.sin(ang)*w,ty+Math.cos(ang)*w); g.closePath(); g.fill(); }
+  drawFx("lit");
+  g.restore();
+  g.fillStyle=pirHot>now?"#ff3030":"#3a1010"; g.beginPath(); g.arc(240,128,2.5,0,7); g.fill();
+  // fog drifts over everything near the floor
+  for(const p of parts) if(p.k==="fog"){ const rg=g.createRadialGradient(p.x,p.y,0,p.x,p.y,p.r); rg.addColorStop(0,rgba(mix([160,150,180],avg,0.5),0.12)); rg.addColorStop(1,"rgba(160,150,180,0)"); g.fillStyle=rg; g.fillRect(p.x-p.r,p.y-p.r,p.r*2,p.r*2); }
+  if(flash){ g.fillStyle=`rgba(235,240,255,${0.28*flash})`; g.fillRect(0,0,800,600); }
+  drawFx("dark");
+  // jump-scare pulse when the prop slams down, frost creeping in for the yeti
+  const sinceLand=now-landed;
+  if(sinceLand<700&&(seasonKey==="halloween"||seasonKey==="winter")){ const k=1-sinceLand/700, col=seasonKey==="halloween"?[200,0,20]:[190,225,255];
+    const pg=g.createRadialGradient(400,300,150,400,300,520); pg.addColorStop(0,rgba(col,0)); pg.addColorStop(1,rgba(col,(reduceMotion?0.2:0.45)*k)); g.fillStyle=pg; g.fillRect(0,0,800,600); }
+  if(seasonKey==="winter"){ frost=lerp(frost,st.show&&frac>0.6?1:0,0.03); if(frost>0.02){ const fg=g.createRadialGradient(400,300,240,400,300,520); fg.addColorStop(0,"rgba(220,240,255,0)"); fg.addColorStop(1,`rgba(220,240,255,${0.38*frost})`); g.fillStyle=fg; g.fillRect(0,0,800,600); } }
+  const vg=g.createRadialGradient(400,300,220,400,300,560); vg.addColorStop(0,"rgba(0,0,0,0)"); vg.addColorStop(1,"rgba(0,0,0,.65)"); g.fillStyle=vg; g.fillRect(0,0,800,600);
+  if(!grainPat) grainPat=g.createPattern(grain,"repeat");
+  g.save(); g.globalAlpha=0.045; g.translate(Math.random()*128,Math.random()*128); g.fillStyle=grainPat; g.fillRect(-128,-128,1056,856); g.restore();
+  captions.forEach((c,i)=>{ if(now-c.t0<2600) bubble(C.x,y-80-i*40,c.text,false); });
+  ui(); requestAnimationFrame(frame);
+}
+
+// ================================================================== UI ===
+const $=id=>document.getElementById(id);
+function buildSeasonUI(){
+  S=SEASONS[seasonKey]; R=ROOM[seasonKey];
+  document.documentElement.style.setProperty("--accent",S.accent); document.documentElement.style.setProperty("--accent-ink",S.ink);
+  stopAll(); st.pos=0; st.target=0; st.wled=1; confetti=[]; fx=[]; initParticles(); setVerb(); preloadSeason(); startAmbient();
+  $("who").innerHTML=S.char+"<small>"+S.label+"</small>";
+  $("ptitle").textContent=S.char.toUpperCase(); document.querySelector(".url").textContent="http://"+S.host;
+  $("shows").innerHTML=""; Object.entries(S.shows).forEach(([id,[label,hint]])=>{ const b=document.createElement("button"); b.className="show"; b.dataset.id=id; b.innerHTML=label+"<small>"+hint+"</small>"; b.onclick=()=>{wake(); startShow(id)}; $("shows").appendChild(b); });
+  $("sounds").innerHTML=""; S.sounds.forEach((n,i)=>{ if(i===6) return; const b=document.createElement("button"); b.textContent=n; b.onclick=()=>{wake(); playSlot(i+1)}; $("sounds").appendChild(b); });
+  const cb=document.createElement("button"); cb.textContent="Chitter (piezo)"; cb.onclick=()=>{wake(); st.chitUntil=now+800}; $("sounds").appendChild(cb);
+  $("wled").innerHTML=""; S.wled.forEach((p,i)=>{ const b=document.createElement("button"); b.textContent=p.n; b.onclick=()=>{st.wled=i+1}; $("wled").appendChild(b); });
+  $("seasonCard").innerHTML=`<h3>${S.label}: ${S.char}</h3><p>${S.blurb}</p><ul>${S.build.map(x=>"<li>"+x+"</li>").join("")}</ul>`;
+  document.querySelectorAll("#seasons button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.k===seasonKey));
+  try{ localStorage.setItem("sh-season",seasonKey) }catch(e){}
+}
+function ui(){
+  $("st").innerHTML=st.show?`<b style="color:var(--accent)">PLAYING: ${S.shows[st.show][0]}</b>`:(st.homing?"homing...":"lurking in the corner");
+  document.querySelectorAll(".show").forEach(b=>b.classList.toggle("on",b.dataset.id===st.show));
+  $("arm").setAttribute("aria-pressed",st.armed); $("party").setAttribute("aria-pressed",st.party);
+  if(document.activeElement!==$("eyes")) $("eyes").value=st.eyes;
+  $("sensors").innerHTML=`<span class="pill ${pirHot>now?"hot":""}">PIR: ${pirHot>now?"motion":"quiet"}</span><span class="pill">Top switch: ${st.pos<1?"pressed":"open"}</span><span class="pill">WLED: ${S.wled[st.wled-1].n}</span>`;
+  $("pos").textContent=`Position ${Math.round(st.pos)} / ${st.drop} steps`;
+  $("barI").style.width=Math.min(100,100*st.pos/st.drop)+"%";
+  $("score").innerHTML=`Scared <b>${score.scared}</b> · Laughed <b>${score.laughed}</b>`;
+  $("nowplaying").textContent="♪ "+(now-nowPlayingAt<4000?nowPlaying:(soundOn?"room tone":"sound off"));
+}
+function wake(){ if(soundOn&&ac&&ac.state==="suspended") ac.resume(); }
+Object.entries(SEASONS).forEach(([k,v])=>{ const b=document.createElement("button"); b.textContent=v.label; b.dataset.k=k; b.onclick=()=>{seasonKey=k; buildSeasonUI()}; $("seasons").appendChild(b); });
+$("stop").onclick=stopAll;
+$("home").onclick=()=>{ stopAll(); st.homing=true; st.target=0; [st.maxV,st.acc]=SPEEDS[1]; };
+$("setdrop").onclick=()=>{ if(st.pos>100) st.drop=Math.round(st.pos); };
+document.querySelectorAll("[data-jog]").forEach(b=>b.onclick=()=>{ if(st.show) return; [st.maxV,st.acc]=SPEEDS[1]; st.target=Math.max(0,Math.round(st.pos)+(+b.dataset.jog)); });
+$("arm").onclick=()=>{st.armed=!st.armed};
+$("party").onclick=()=>{st.party=!st.party; st.nextParty=now+5000};
+$("eyes").onchange=e=>{st.eyes=e.target.value};
+$("vol").oninput=e=>{st.vol=+e.target.value; setVol()};
+$("guest").onclick=()=>{ wake(); sendGuest(); };
+$("snd").onclick=()=>{ soundOn=!soundOn; if(soundOn){ audioInit(); ac.resume(); preloadSeason(); startAmbient(); } else { stopAudio(); stopAmbient(); } $("snd").setAttribute("aria-pressed",soundOn); $("snd").textContent=soundOn?"Sound on":"Sound off"; };
+try{ const k=localStorage.getItem("sh-season"); if(k&&SEASONS[k]) seasonKey=k; }catch(e){}
+fitCanvas(); buildSeasonUI(); addEventListener("resize",fitCanvas);
+setTimeout(()=>startShow(Object.keys(S.shows)[0]),900);
+requestAnimationFrame(frame);
+</script>
+
+</html>
