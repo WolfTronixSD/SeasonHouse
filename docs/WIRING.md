@@ -43,7 +43,7 @@ GPIO17 (TX2) ── 1kΩ ── DFPlayer RX
 DFPlayer SPK1/SPK2 ── speaker
 ```
 
-Set the A4988 current limit before the first run (Vref ≈ 0.6 V for a 1.5 A NEMA17 with 0.1 Ω sense resistors) and leave MS1-MS3 open for full steps, which is what the default speeds in `config.h` assume.
+Set the A4988 current limit before the first run (Vref ≈ 0.6 V for a 1.5 A NEMA17 with 0.1 Ω sense resistors) and leave MS1-MS3 open for full steps, which is what the default speeds in `config.py` assume.
 
 ## Mechanics
 
@@ -62,10 +62,22 @@ Each season uses four WLED presets, numbered season × 10 + slot: Halloween 1-4,
 
 Type the WLED controller's IP on the control page (Eyes, sound, lights → WLED IP) and press Save.
 
-## First run
+## First run (one time, with a USB cable)
 
-1. Edit `firmware/corner-spider/include/config.h`: Wi-Fi name and password.
-2. `pio run -d firmware/corner-spider -t upload`, then `pio device monitor` to see the IP.
-3. Open `http://spider.local` (or the IP). If your router is not reachable the spider makes its own hotspot **SeasonHouse-Spider** (password `boo12345`), page at `http://192.168.4.1`. Join WLED to that hotspot too for an offline party.
-4. On boot the spider winds up until the switch clicks. Then in **Setup: drop length**, jog down until it hangs at face height and press **Save current spot as full drop**.
-5. Pick the season, press the first show, then arm the motion sensor and hide.
+1. Flash MicroPython 1.22 or newer on the ESP32 (the "ESP32 / WROOM" generic build from micropython.org/download):
+   `pip install esptool mpremote`, then
+   `esptool.py --chip esp32 erase_flash` and `esptool.py --chip esp32 write_flash -z 0x1000 ESP32_GENERIC-<version>.bin`.
+2. Edit `firmware/micropython/config.py`: Wi-Fi name and password, and set your own `OTA_KEY`.
+3. Copy the firmware onto the board: `cd firmware/micropython && mpremote cp -r . : + reset`.
+4. `mpremote repl` shows the address it got. Open `http://spider.local` (or the IP). If your router is not reachable the prop makes its own hotspot **SeasonHouse-Prop** (password `boo12345`), page at `http://192.168.4.1`. Join WLED to that hotspot too for an offline party.
+5. On boot the prop winds up until the switch clicks. Then in **Setup: drop length**, jog down until it hangs at face height and press **Save current spot as full drop**.
+6. Pick the season, press the first show, then arm the motion sensor and hide.
+
+## Updating an installed prop (no cable)
+
+Either way needs the `OTA_KEY` from `config.py`.
+
+- **From the control page:** open **Firmware update (over Wi-Fi)**, type the key, choose the changed files (for example `app.py` or `index.html`), press **Upload**, then **Reboot**.
+- **From your computer:** `python3 tools/ota_push.py spider.local --key YOUR_KEY` uploads every file and reboots. Name files to send only those: `python3 tools/ota_push.py spider.local --key YOUR_KEY app.py`.
+
+Each `.py` file is test-compiled on the prop before it replaces the old one, so a typo is refused instead of installed. If new code still crashes at boot, the prop opens a **recovery page** at the same address instead of the show. Upload the fixed file there and reboot. `main.py` and `recovery.py` are that safety net and are never replaced unless you add `--force`.

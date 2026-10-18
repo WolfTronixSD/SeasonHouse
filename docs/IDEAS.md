@@ -6,7 +6,7 @@ Legend: 😱 scary, 😂 funny, 🧰 parts you already have, 🛒 needs somethin
 
 ## Stepper props (cousins of the Corner Spider)
 
-1. **Corner Spider** 😱😂 🧰 *(built, `firmware/corner-spider`)*. Drops from the ceiling with lightning and a scream, twitches, laughs and winds back up. Has a Fake-Out Boing and a Spider Disco mode.
+1. **Corner Spider** 😱😂 🧰 *(built, `firmware/micropython`)*. Drops from the ceiling with lightning and a scream, twitches, laughs and winds back up. Has a Fake-Out Boing and a Spider Disco mode.
 2. **Rat Express** 😱 🧰. A stepper drives a loop of fishing line along the baseboard, and a toy rat clipped to it scurries across the floor with squeaks when the PIR fires. Run it right behind people's ankles.
 3. **Zipline Ghost** 😱 🧰. Same loop idea at ceiling height across the room: a cheesecloth ghost with white LEDs flies over the guests' heads while WLED flickers and the MP3 wails. Add a "boo" stop exactly above the sofa.
 4. **Haunted Toilet Paper** 😂 🧰. A stepper hidden behind the roll slowly unrolls the toilet paper when someone sits down (PIR under the sink), then plays "...I'm watching you" and rolls it back up. Tested by nobody, guaranteed reaction.

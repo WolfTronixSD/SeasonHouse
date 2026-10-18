@@ -1,20 +1,20 @@
-name: Build firmware
+name: Firmware checks
 on:
   push:
   pull_request:
 jobs:
-  corner-spider:
+  micropython:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - uses: actions/cache@v4
-        with:
-          path: ~/.platformio
-          key: pio-${{ hashFiles('firmware/**/platformio.ini') }}
-      - run: pip install platformio
-      - run: pio run -d firmware/corner-spider
+      - name: Compile every file with the MicroPython compiler
+        run: |
+          pip install mpy-cross
+          for f in firmware/micropython/*.py; do mpy-cross -o /tmp/out.mpy "$f"; done
+      - name: Run the firmware tests (fake hardware)
+        run: python tests/test_firmware.py
       - name: Firmware shows match the simulator
-        run: node tools/gen_seasons.mjs && git diff --exit-code firmware/corner-spider/include/seasons.h
+        run: node tools/gen_seasons.mjs && git diff --exit-code firmware/micropython/seasons.json

@@ -1,8 +1,4 @@
-#pragma once
-#include <pgmspace.h>
-
-// The control page, served straight from the ESP32 so it works with no internet.
-static const char INDEX_HTML[] PROGMEM = R"HTML(<!doctype html>
+<!doctype html>
 <html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>SeasonHouse Prop</title>
@@ -54,6 +50,12 @@ input[type=range]{flex:1}input[type=text],input[type=number],select{font:inherit
  <div class="row"><label>WLED IP</label><input type="text" id="wh"><button onclick="api('wled?host='+encodeURIComponent(wh.value))">Save</button></div>
 </section>
 
+<section><h2>Firmware update (over Wi-Fi)</h2>
+ <div class="row"><label for="okey">Update key</label><input type="text" id="okey" autocomplete="off"></div>
+ <div class="row"><input type="file" id="ofiles" multiple><button onclick="upload()">Upload</button><button onclick="reboot()">Reboot</button></div>
+ <pre id="olog" style="white-space:pre-wrap;color:var(--dim);font-size:13px;margin:6px 0 0"></pre>
+</section>
+
 <section><h2>Setup: drop length</h2>
  <div id="bar"><i></i></div>
  <div class="row" style="margin-top:8px"><span id="pos"></span></div>
@@ -87,5 +89,12 @@ async function season(id){
  $('wledb').innerHTML='';d.wled.forEach((n,i)=>btn('wledb',n,'',()=>api('wled?slot='+(i+1))));
 }
 season();
+async function upload(){const k=encodeURIComponent($('okey').value);for(const f of $('ofiles').files){
+ const n=(f.name.endsWith('.html')?'www/':'')+f.name;$('olog').textContent+=n+'... ';
+ try{const r=await fetch('/api/ota?file='+encodeURIComponent(n)+'&key='+k,{method:'POST',body:f});const d=await r.json();
+ $('olog').textContent+=(d.ok?'installed ('+d.bytes+' bytes)':'FAILED: '+d.error)+'\n'}catch(e){$('olog').textContent+='FAILED: '+e+'\n'}}
+ $('olog').textContent+='Press Reboot to run the new code.\n'}
+async function reboot(){const r=await fetch('/api/reboot?key='+encodeURIComponent($('okey').value));const d=await r.json();
+ $('olog').textContent+=d.ok?'Rebooting. This page reconnects in about 10 s.\n':'Reboot refused: '+d.error+'\n'}
 api('status');setInterval(()=>api('status'),1000);
-</script></body></html>)HTML";
+</script></body></html>
