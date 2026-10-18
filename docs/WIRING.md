@@ -54,20 +54,13 @@ Set the A4988 current limit before the first run (Vref ≈ 0.6 V for a 1.5 A NEM
 
 ## Sound card
 
-Copy MP3s into a folder named `mp3` on the SD card, named `0001.mp3`, `0002.mp3` and so on. The track list is in [`sd-card/README.md`](../sd-card/README.md).
+The card has one folder per season (`01` Halloween to `05` Winter) with `001.mp3` to `008.mp3` in each. The full list is in [`sd-card/README.md`](../sd-card/README.md).
 
 ## WLED
 
-In WLED save four presets with these IDs (or change the numbers in `config.h`):
+Each season uses four WLED presets, numbered season × 10 + slot: Halloween 1-4, Christmas 11-14, Easter 21-24, Fall 31-34, Winter 41-44. Slot 1 is the ambient look, 2 the flash, 3 the mood colour and 4 party. The looks for each season are in [`SEASONS.md`](SEASONS.md). You only need to save the presets for the seasons you use.
 
-| ID | Look |
-|---|---|
-| 1 | Ambient: dim purple/orange "Breathe" |
-| 2 | Lightning: "Lightning" or "Strobe Mega", white |
-| 3 | Blood red: solid deep red, slow "Fade" |
-| 4 | Party: "Rainbow" or "Juggle" |
-
-Type the WLED controller's IP on the spider's web page (Eyes, sound, lights → WLED IP) and press Save.
+Type the WLED controller's IP on the control page (Eyes, sound, lights → WLED IP) and press Save.
 
 ## First run
 
@@ -75,4 +68,4 @@ Type the WLED controller's IP on the spider's web page (Eyes, sound, lights → 
 2. `pio run -d firmware/corner-spider -t upload`, then `pio device monitor` to see the IP.
 3. Open `http://spider.local` (or the IP). If your router is not reachable the spider makes its own hotspot **SeasonHouse-Spider** (password `boo12345`), page at `http://192.168.4.1`. Join WLED to that hotspot too for an offline party.
 4. On boot the spider winds up until the switch clicks. Then in **Setup: drop length**, jog down until it hangs at face height and press **Save current spot as full drop**.
-5. Press **The Classic Drop**. Then arm the motion sensor and hide.
+5. Pick the season, press the first show, then arm the motion sensor and hide.

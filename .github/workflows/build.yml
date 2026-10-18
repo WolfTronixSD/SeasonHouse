@@ -16,3 +16,5 @@ jobs:
           key: pio-${{ hashFiles('firmware/**/platformio.ini') }}
       - run: pip install platformio
       - run: pio run -d firmware/corner-spider
+      - name: Firmware shows match the simulator
+        run: node tools/gen_seasons.mjs && git diff --exit-code firmware/corner-spider/include/seasons.h

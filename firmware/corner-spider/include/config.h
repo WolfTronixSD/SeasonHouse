@@ -15,14 +15,11 @@
 #define MDNS_NAME        "spider"          // http://spider.local
 
 // ---- WLED -------------------------------------------------------------------
-// IP of your WLED controller. Save these presets in WLED (Presets tab):
-//   1 = ambient (dim purple/orange breathe)   2 = lightning / strobe
-//   3 = blood red solid                       4 = party / rainbow
+// IP of your WLED controller. Each season uses 4 WLED presets, numbered
+// season*10 + slot: Halloween 1-4, Christmas 11-14, Easter 21-24, Fall 31-34,
+// Winter 41-44. Slot 1 = ambient, 2 = flash, 3 = mood colour, 4 = party.
+// The preset looks for every season are listed in docs/SEASONS.md.
 #define WLED_HOST        "192.168.1.50"
-#define WLED_PS_AMBIENT  1
-#define WLED_PS_LIGHTNING 2
-#define WLED_PS_RED      3
-#define WLED_PS_PARTY    4
 
 // ---- Pins (ESP32 DevKit v1) -------------------------------------------------
 // Stepper driver: A4988 / DRV8825 / TMC2208 in STEP/DIR mode (NEMA17).
@@ -63,12 +60,6 @@
 #define MOTION_COOLDOWN_MS   20000UL   // min time between motion-triggered scares
 #define DEFAULT_VOLUME       25        // 0..30
 
-// ---- Sound tracks on the SD card (folder /mp3, files 0001.mp3 ...) ---------
-#define TRK_HISS         1   // angry hiss
-#define TRK_SCREAM       2   // scream / sting
-#define TRK_LAUGH        3   // evil laugh
-#define TRK_CREAK        4   // creaky rope
-#define TRK_HEARTBEAT    5   // heartbeat loop
-#define TRK_BOING        6   // cartoon boing (funny fake-out)
-#define TRK_DISCO        7   // "Spider Disco" music
-#define TRK_HELLO        8   // squeaky "hiii!" (funny)
+// ---- Sound -------------------------------------------------------------------
+// One SD-card folder per season (01 Halloween ... 05 Winter), files 001.mp3 to
+// 008.mp3 in each. What each slot is for is listed in sd-card/README.md.

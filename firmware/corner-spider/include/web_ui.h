@@ -5,7 +5,7 @@
 static const char INDEX_HTML[] PROGMEM = R"HTML(<!doctype html>
 <html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Corner Spider</title>
+<title>SeasonHouse Prop</title>
 <style>
 :root{--bg:#0b0710;--panel:#1a1022;--line:#3a2547;--txt:#eadff2;--dim:#9c88aa;--acc:#ff6a00;--red:#e0182d;--grn:#5fd16b}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--txt);font:16px/1.4 system-ui,sans-serif}
@@ -18,6 +18,7 @@ h2{margin:0 0 10px;font-size:15px;text-transform:uppercase;letter-spacing:2px;co
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
 button{font:inherit;color:var(--txt);background:#2a1836;border:1px solid var(--line);border-radius:10px;padding:14px 10px;cursor:pointer}
 button:active{transform:scale(.97)}
+button.show small{display:block;font-weight:400;color:var(--dim);font-size:12px}
 button.show{background:linear-gradient(160deg,#3b1450,#22102c);font-weight:600}
 button.show.on{outline:2px solid var(--acc);box-shadow:0 0 18px #ff6a0090}
 #stop{width:100%;background:var(--red);border:0;font-size:20px;font-weight:800;padding:16px}
@@ -30,11 +31,13 @@ input[type=range]{flex:1}input[type=text],input[type=number],select{font:inherit
 #bar{height:10px;background:#120a18;border-radius:99px;overflow:hidden;border:1px solid var(--line)}
 #bar i{display:block;height:100%;width:0;background:var(--acc);transition:width .3s}
 </style></head><body>
-<header><h1>&#128375; CORNER SPIDER</h1><div id="st">connecting...</div></header>
+<header><h1 id="ttl">SEASONHOUSE</h1><div id="st">connecting...</div></header>
 <main>
 <section><button id="stop" onclick="api('stop')">STOP</button></section>
 
-<section><h2>Scares</h2><div class="grid" id="shows"></div></section>
+<section><h2>Season</h2><div class="row"><select id="season" onchange="season(this.value)"></select></div></section>
+
+<section><h2>Shows</h2><div class="grid" id="shows"></div></section>
 
 <section><h2>Triggers</h2>
  <div class="row"><button class="tog" id="arm" onclick="api('arm?on='+(S.armed?0:1))">Motion sensor</button>
@@ -46,14 +49,8 @@ input[type=range]{flex:1}input[type=text],input[type=number],select{font:inherit
  <div class="row"><label>Eyes</label><select id="eyes" onchange="api('eyes?mode='+this.value)">
   <option>off</option><option>glow</option><option>full</option><option>pulse</option><option>flicker</option><option>blink</option><option>disco</option></select></div>
  <div class="row"><label>Volume</label><input type="range" id="vol" min="0" max="30" onchange="api('vol?v='+this.value)"></div>
- <div class="grid">
-  <button onclick="api('sound?t=1')">Hiss</button><button onclick="api('sound?t=2')">Scream</button>
-  <button onclick="api('sound?t=3')">Evil laugh</button><button onclick="api('sound?t=6')">Boing</button>
-  <button onclick="api('sound?t=8')">"Hiii!"</button><button onclick="api('chitter')">Chitter</button>
- </div>
- <div class="row" style="margin-top:12px"><label>WLED</label>
-  <button onclick="api('wled?ps=1')">Ambient</button><button onclick="api('wled?ps=2')">Lightning</button>
-  <button onclick="api('wled?ps=3')">Blood red</button><button onclick="api('wled?ps=4')">Party</button></div>
+ <div class="grid" id="sounds"></div>
+ <h2 style="margin-top:14px">WLED</h2><div class="grid" id="wledb"></div>
  <div class="row"><label>WLED IP</label><input type="text" id="wh"><button onclick="api('wled?host='+encodeURIComponent(wh.value))">Save</button></div>
 </section>
 
@@ -80,7 +77,15 @@ function draw(){
  $('pos').textContent='Position '+S.pos+' / '+S.drop+' steps';
  $('bar').firstChild.style.width=Math.min(100,100*S.pos/S.drop)+'%';
 }
-fetch('/api/shows').then(r=>r.json()).then(list=>{list.forEach(s=>{const b=document.createElement('button');
- b.className='show';b.dataset.id=s.id;b.textContent=s.label;b.onclick=()=>api('run?show='+s.id);$('shows').appendChild(b)})});
+function btn(parent,html,cls,fn){const b=document.createElement('button');b.innerHTML=html;if(cls)b.className=cls;b.onclick=fn;$(parent).appendChild(b);return b}
+async function season(id){
+ const r=await fetch('/api/season'+(id?'?s='+id:''));const d=await r.json();
+ $('ttl').textContent=d.character.toUpperCase();
+ $('season').innerHTML=d.seasons.map(x=>'<option value="'+x.id+'"'+(x.id==d.season?' selected':'')+'>'+x.label+'</option>').join('');
+ $('shows').innerHTML='';d.shows.forEach(s=>{btn('shows',s.label+'<small>'+s.hint+'</small>','show',()=>api('run?show='+s.id)).dataset.id=s.id});
+ $('sounds').innerHTML='';d.sounds.forEach((n,i)=>{if(i!=6)btn('sounds',n,'',()=>api('sound?t='+(i+1)))});btn('sounds','Chitter','',()=>api('chitter'));
+ $('wledb').innerHTML='';d.wled.forEach((n,i)=>btn('wledb',n,'',()=>api('wled?slot='+(i+1))));
+}
+season();
 api('status');setInterval(()=>api('status'),1000);
 </script></body></html>)HTML";
