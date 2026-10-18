@@ -1,4 +1,8 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"></head><body>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>SeasonHouse Simulator</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -116,7 +120,7 @@ select{font:inherit;background:#0b0910;color:var(--ink);border:1px solid var(--l
       </div>
     </div>
   </div>
-  <p class="note">Timings are the firmware's real speeds (2000 steps/s drop on a 30 mm spool). The motion cooldown is shortened from 20 s to 8 s and party mode fires every 20 to 40 s instead of 1 to 4 minutes, so you don't wait around. The MP3 sounds are synthesized stand-ins for the files you put on the SD card; the clicks are the real piezo chitter. Flashing and shaking are toned down if your device asks for reduced motion.</p>
+  <p class="note">Timings are the firmware's real speeds (2000 steps/s drop on a 30 mm spool). The motion cooldown is shortened from 20 s to 8 s and party mode fires every 20 to 40 s instead of 1 to 4 minutes, so you don't wait around. The sounds are the actual MP3 files for the SD card (real recordings, voice lines and music, credits in the repo), played one at a time like the DFPlayer does; the clicks are the piezo chitter. Guests come in through the door; the hall light behind them shows who they are. Flashing and shaking are toned down if your device asks for reduced motion.</p>
 </div>
 
 <script>
@@ -220,10 +224,10 @@ let now=0, lastT=performance.now();
 const captions=[];
 const guest={active:false,x:0,t0:0,jump:0,said:null,reactAt:-1e9};
 const score={scared:0,laughed:0};
-let pirHot=0, shakeUntil=0, prevVel=0, nowPlaying="quiet", nowPlayingAt=-1e9;
+let pirHot=0, shakeUntil=0, prevVel=0, prevFrac=0, landed=-1e9, nowPlaying="quiet", nowPlayingAt=-1e9;
 
 // ================================================================== AUDIO ===
-let ac=null, bus, master, wet, soundOn=false, live=[], noiseBuf=null, ambient=null;
+let ac=null, bus, master, wet, verbIn, sampleBus, soundOn=false, live=[], noiseBuf=null, ambient=null, mp3=null;
 const VERB={halloween:.5,christmas:.28,easter:.18,fall:.3,winter:.55};
 function audioInit(){
   if(ac) return;
@@ -233,9 +237,29 @@ function audioInit(){
   bus=ac.createGain(); const dry=ac.createGain(); wet=ac.createGain(); const verb=ac.createConvolver();
   const len=ac.sampleRate*2.8, ir=ac.createBuffer(2,len,ac.sampleRate);
   for(let c=0;c<2;c++){ const d=ir.getChannelData(c); for(let i=0;i<len;i++) d[i]=(Math.random()*2-1)*Math.pow(1-i/len,2.6); }
-  verb.buffer=ir; bus.connect(dry).connect(master); bus.connect(verb).connect(wet).connect(master);
+  verb.buffer=ir; verbIn=verb; bus.connect(dry).connect(master); bus.connect(verb).connect(wet).connect(master);
+  // recorded MP3s already carry their own reverb, so they only get a small room send
+  sampleBus=ac.createGain(); sampleBus.connect(master); const send=ac.createGain(); send.gain.value=0.35; sampleBus.connect(send).connect(verb);
   noiseBuf=ac.createBuffer(1,ac.sampleRate*3,ac.sampleRate); const nd=noiseBuf.getChannelData(0); for(let i=0;i<nd.length;i++) nd[i]=Math.random()*2-1;
   setVol(); setVerb();
+}
+// ---- the real SD-card MP3s. The published page has them under sounds/, a repo
+// checkout finds them in ../sd-card/. If neither loads, the synth stand-ins play.
+const SEASON_DIR={halloween:"01",christmas:"02",easter:"03",fall:"04",winter:"05"};
+const SIM_SOUNDS=["thunder","door","footsteps","gasp","gasp2","laugh-guest","laugh-guest2"];
+const bufs={}, loading={};
+async function fetchBuf(paths){ for(const p of paths){ try{ const r=await fetch(p); if(!r.ok) continue; return await ac.decodeAudioData(await r.arrayBuffer()); }catch(e){} } return null; }
+function loadSample(key,paths){ if(key in bufs||loading[key]) return; loading[key]=fetchBuf(paths).then(b=>{ bufs[key]=b; loading[key]=null; }); }
+const slotKey=n=>SEASON_DIR[seasonKey]+"/"+String(n).padStart(3,"0");
+function preloadSeason(){
+  if(!ac) return;
+  for(let n=1;n<=8;n++){ const k=slotKey(n); loadSample(k,["sounds/"+k+".mp3","../sd-card/"+k+".mp3"]); }
+  SIM_SOUNDS.concat("amb-"+seasonKey).forEach(n=>loadSample("sim/"+n,["sounds/sim/"+n+".mp3"]));
+}
+function playBuf(key,g=1,{when=0,loop=false,dest=sampleBus,rate=1}={}){
+  const b=bufs[key]; if(!soundOn||!ac||!b) return null;
+  const s=ac.createBufferSource(), v=ac.createGain(); s.buffer=b; s.loop=loop; s.playbackRate.value=rate; v.gain.value=g;
+  s.connect(v).connect(dest); s.start(ac.currentTime+when); if(!loop) keep(s); return s;
 }
 function setVol(){ if(master) master.gain.value=(st.vol/30)*0.9; }
 function setVerb(){ if(wet) wet.gain.value=VERB[seasonKey]; }
@@ -290,7 +314,7 @@ function dance(t0){
   for(let b=0;b<total;b++){ const root=M.bass[Math.floor(b/8)%4]; const o=ac.createOscillator(), v=ac.createGain(), lp=filt("lowpass",500,4); o.type="sawtooth"; o.frequency.value=mtof(root+(b%2?12:0)); env(v.gain,t0+b*e,0.005,0.12,e*0.3,e*0.6); o.connect(lp).connect(v).connect(bus); o.start(t0+b*e); o.stop(t0+(b+1)*e+0.05); keep(o); }
   let pos=0; while(pos<total){ for(const [m,d] of M.mel){ if(pos>=total) break; M.inst(t0+pos*e,m,d*e); if(seasonKey==="winter") pad(t0+pos*e,m-12,d*e); pos+=d; } }
 }
-function thunder(){ const t=ac.currentTime+0.4+Math.random()*0.9; noise(t,0.25,[filt("highpass",900)],0.35); const lp=filt("lowpass",400); lp.frequency.setValueAtTime(400,t); lp.frequency.exponentialRampToValueAtTime(90,t+3); noise(t+0.05,3.2,[lp],0.9,0.08); }
+function thunder(){ if(playBuf("sim/thunder",0.9,{when:0.4+Math.random()*0.9,rate:0.9+Math.random()*0.2})) return; const t=ac.currentTime+0.4+Math.random()*0.9; noise(t,0.25,[filt("highpass",900)],0.35); const lp=filt("lowpass",400); lp.frequency.setValueAtTime(400,t); lp.frequency.exponentialRampToValueAtTime(90,t+3); noise(t+0.05,3.2,[lp],0.9,0.08); }
 const SFX={
   hiss:t=>{ noise(t,1.0,[filt("highpass",3000),filt("peaking",6500,1)],0.6,0.08); noise(t+1.05,0.35,[filt("highpass",4000)],0.4,0.02); },
   scream:t=>{ voice(t,[["a",1.2,900,1250]],{vib:4,breath:.5,gain:.5,formant:1.15}); const lp=filt("lowpass",800,3); lp.frequency.setValueAtTime(700,t); lp.frequency.exponentialRampToValueAtTime(5000,t+0.6); lp.connect(bus); [220,233,311,330,466].forEach(f=>{ const o=ac.createOscillator(),v=ac.createGain(); o.type="sawtooth"; o.frequency.value=f; env(v.gain,t,0.01,0.05,0.4,0.9); o.connect(v).connect(lp); o.start(t); o.stop(t+1.5); keep(o); }); },
@@ -322,17 +346,26 @@ const SFX={
   brrr:t=>voice(t,[["u",1.0,140,120]],{trem:28,gain:.45,breath:.3})
 };
 function synth(slot){ if(!soundOn||!ac) return; const k=SOUNDFX[seasonKey][slot-1]; SFX[k](ac.currentTime+0.02); }
+// The DFPlayer plays one file at a time: a new track cuts the last one off.
+function mp3Play(slot){
+  if(!soundOn||!ac) return;
+  if(mp3){ try{ mp3.stop() }catch(e){} mp3=null; }
+  mp3=playBuf(slotKey(slot),1); if(!mp3) synth(slot);
+}
 function chirp(){ if(soundOn&&ac){ const t=ac.currentTime; const o=ac.createOscillator(),v=ac.createGain(); o.type="square"; o.frequency.value=2200+Math.random()*2600; env(v.gain,t,0.001,0.035,0.004,0.006); o.connect(v).connect(master); o.start(t); o.stop(t+0.02); } }
 // quiet background sounds per season
 function startAmbient(){
   stopAmbient(); if(!soundOn||!ac) return;
+  const rec=playBuf("sim/amb-"+seasonKey,{halloween:.55,christmas:.4,easter:.35,fall:.5,winter:.5}[seasonKey],{loop:true,dest:master});
+  if(rec){ ambient={s:rec,rec:true}; return; }
   const s=ac.createBufferSource(); s.buffer=noiseBuf; s.loop=true; const bp=filt("bandpass",400,2); const lfo=ac.createOscillator(), lg=ac.createGain(); lfo.frequency.value=0.09; lg.gain.value=250; lfo.connect(lg).connect(bp.frequency);
   const v=ac.createGain(); v.gain.value={halloween:.06,christmas:.015,easter:.01,fall:.03,winter:.09}[seasonKey];
   s.connect(bp).connect(v).connect(master); s.start(); lfo.start(); ambient={s,lfo};
 }
-function stopAmbient(){ if(ambient){ try{ambient.s.stop(); ambient.lfo.stop();}catch(e){} ambient=null; } }
+function stopAmbient(){ if(ambient){ try{ambient.s.stop(); ambient.lfo&&ambient.lfo.stop();}catch(e){} ambient=null; } }
 let nextAmb=0;
 function ambientTick(){
+  if(soundOn&&ac&&ambient&&!ambient.rec&&bufs["sim/amb-"+seasonKey]) startAmbient();   // the recording just finished loading
   if(!soundOn||!ac||now<nextAmb) return; const t=ac.currentTime;
   if(seasonKey==="christmas"||seasonKey==="fall"){ for(let i=0;i<3;i++) noise(t+Math.random()*0.3,0.008,[filt("highpass",1500)],0.25*Math.random(),0.001); nextAmb=now+120+Math.random()*400; }
   else if(seasonKey==="easter"){ const o=ac.createOscillator(),v=ac.createGain(); o.type="sine"; o.frequency.setValueAtTime(3200,t); o.frequency.exponentialRampToValueAtTime(4800,t+0.08); o.frequency.exponentialRampToValueAtTime(3000,t+0.16); env(v.gain,t,0.01,0.04,0.05,0.1); o.connect(v).connect(bus); o.start(t); o.stop(t+0.3); nextAmb=now+1500+Math.random()*3000; }
@@ -340,11 +373,11 @@ function ambientTick(){
 }
 
 // ============================================================ SHOW ENGINE ===
-function playSlot(n){ captions.push({text:"♪ "+S.sounds[n-1],t0:now}); if(captions.length>3) captions.shift(); nowPlaying=S.sounds[n-1]; nowPlayingAt=now; synth(n); }
+function playSlot(n){ captions.push({text:"♪ "+S.sounds[n-1],t0:now}); if(captions.length>3) captions.shift(); nowPlaying=S.sounds[n-1]; nowPlayingAt=now; mp3Play(n); }
 function moveTo(steps,sp){ st.target=Math.max(0,Math.min(st.drop,steps)); [st.maxV,st.acc]=SPEEDS[sp]; }
 const running=()=>Math.abs(st.target-st.pos)>0.5||Math.abs(st.vel)>1;
 function startShow(id){ if(!st.homed||st.homing||!S.shows[id]) return false; st.show=id; st.pc=0; st.waitUntil=null; st.wig=-1; st.lastScare=now; return true; }
-function stopAll(){ st.show=null; st.homing=false; st.target=Math.round(st.pos); st.vel=0; stopAudio(); st.chitUntil=0; st.eyes="glow"; }
+function stopAll(){ st.show=null; st.homing=false; st.target=Math.round(st.pos); st.vel=0; stopAudio(); mp3=null; st.chitUntil=0; st.eyes="glow"; }
 function showTick(){
   if(!st.show) return;
   const steps=S.shows[st.show][2];
@@ -404,12 +437,14 @@ function eyeLevels(){
   return [0,0];
 }
 const NLED=56; const leds=new Array(NLED).fill(0).map(()=>[0,0,0]); const twk=new Array(NLED).fill(0);
-let boltUntil=0,nextBolt=0,lastThunder=-1e9;
+let boltUntil=0,nextBolt=0,lastThunder=-1e9,bolt=[];
 function hsv(h){ const f=n=>{const k=(n+h*6)%6; return 255*(1-Math.max(0,Math.min(k,4-k,1)));}; return [f(5),f(3),f(1)]; }
 function wledTick(){
   const p=S.wled[st.wled-1], t=now/1000;
   if(p.fx==="lightning"&&now>=nextBolt){
     boltUntil=now+(reduceMotion?400:60+Math.random()*140); nextBolt=now+(reduceMotion?1600:300+Math.random()*1100);
+    bolt=[]; let bu=0.2+Math.random()*0.25, bv=0.2; while(bv<0.5){ bolt.push([bu,bv]); bu+=(Math.random()-0.5)*0.05; bv+=0.02+Math.random()*0.04; } bolt.push([bu,0.5]);
+    if(seasonKey==="halloween"&&Math.random()<0.35) for(let i=0;i<3;i++){ const [x,y]=Lw(0.3+Math.random()*0.1,0.33); fx.push({kind:"bat",x,y,vx:120+Math.random()*120,vy:-30-Math.random()*50,life:1,decay:0.22,ph:Math.random()*6}); }
     if(soundOn&&ac&&now-lastThunder>2600){ lastThunder=now; thunder(); }
   }
   for(let i=0;i<NLED;i++){
@@ -429,7 +464,7 @@ function wledTick(){
 }
 
 // ============================================================== SCENE ===
-const cv=document.getElementById("cv"), g=cv.getContext("2d");
+const cv=document.getElementById("cv"); let g=cv.getContext("2d");
 const lc=document.createElement("canvas"), lg=lc.getContext("2d");
 const C={x:400,y:96}, F={x:400,y:468};
 const lerp=(a,b,k)=>a+(b-a)*k;
@@ -453,10 +488,36 @@ function initParticles(){
   if(seasonKey==="fall") add(18,()=>({k:"leaf",x:Math.random()*800,y:Math.random()*600,vy:20+Math.random()*25,a:Math.random()*6,va:(Math.random()-.5)*3,c:[[200,80,20],[220,140,30],[160,40,20]][Math.floor(Math.random()*3)]}));
   if(seasonKey==="easter") add(5,()=>({k:"fly",x:Math.random()*800,y:150+Math.random()*300,ph:Math.random()*6,c:[[255,170,220],[170,220,255],[255,230,140]][Math.floor(Math.random()*3)]}));
 }
-let confetti=[];
+let confetti=[], fx=[];
+// little bursts: dust from the ceiling hole when the prop lets go, a puff when it lands
+const BURST={halloween:"dust",christmas:"snow",easter:"glitter",fall:"leaf",winter:"snow"};
+function burst(x,y,n,kind=BURST[seasonKey],up=40){
+  for(let i=0;i<(reduceMotion?Math.ceil(n/3):n);i++){ const a=Math.random()*Math.PI*2, sp=30+Math.random()*150;
+    fx.push({kind,x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp*0.5-up,life:1,decay:0.45+Math.random()*0.6,r:1.5+Math.random()*2.5,rot:Math.random()*6,
+      c:kind==="glitter"?hsv(Math.random()):kind==="leaf"?[[200,80,20],[220,140,30],[160,40,20]][i%3]:kind==="dust"?[150,140,130]:[240,245,255]}); }
+}
+function breath(x,y){ fx.push({kind:"breath",x,y,vx:(Math.random()-0.5)*20,vy:-8,life:1,decay:0.7,r:6,rot:0,c:[230,240,255]}); }
+function fxTick(dt){
+  for(const p of fx){ p.life-=p.decay*dt;
+    if(p.kind==="bat"){ p.x+=p.vx*dt; p.y+=p.vy*dt+Math.sin(now/90+p.ph)*0.8; continue; }
+    const grav={dust:90,snow:40,glitter:70,leaf:35,breath:-10}[p.kind]; p.vy+=grav*dt; p.vx*=1-1.8*dt; p.vy*=1-(p.kind==="leaf"?2.5:1.2)*dt;
+    p.x+=p.vx*dt+(p.kind==="leaf"?Math.sin(now/300+p.rot)*30*dt:0); p.y+=p.vy*dt; p.rot+=3*dt; if(p.kind==="breath") p.r+=18*dt; }
+  fx=fx.filter(p=>p.life>0&&p.y<620&&p.x>-40&&p.x<840);
+}
+function drawFx(pass){
+  for(const p of fx){ const a=Math.max(0,Math.min(1,p.life));
+    if(pass==="lit"){ if(p.kind==="glitter"){ g.fillStyle=rgba(p.c,a); g.fillRect(p.x-1.5,p.y-1.5,3,3); } continue; }
+    if(p.kind==="bat"){ if(pass!=="dark") continue; const f=Math.sin(now/45+p.ph); g.fillStyle="#08060b"; g.beginPath(); g.moveTo(p.x,p.y); g.quadraticCurveTo(p.x-9,p.y-10*f,p.x-17,p.y-2); g.quadraticCurveTo(p.x-9,p.y+2,p.x,p.y+3); g.quadraticCurveTo(p.x+9,p.y+2,p.x+17,p.y-2); g.quadraticCurveTo(p.x+9,p.y-10*f,p.x,p.y); g.fill(); continue; }
+    if(pass!=="room") continue;
+    if(p.kind==="leaf"){ g.save(); g.translate(p.x,p.y); g.rotate(p.rot); g.fillStyle=rgba(p.c,a); g.beginPath(); g.ellipse(0,0,6,3,0,0,7); g.fill(); g.restore(); }
+    else if(p.kind==="breath"){ const rg=g.createRadialGradient(p.x,p.y,0,p.x,p.y,p.r); rg.addColorStop(0,rgba(p.c,0.35*a)); rg.addColorStop(1,rgba(p.c,0)); g.fillStyle=rg; g.fillRect(p.x-p.r,p.y-p.r,p.r*2,p.r*2); }
+    else if(p.kind==="glitter"){ g.fillStyle=rgba(p.c,a*0.6); g.fillRect(p.x-1,p.y-1,2,2); }
+    else { g.fillStyle=rgba(p.c,a*(p.kind==="dust"?0.55:0.9)); g.beginPath(); g.arc(p.x,p.y,p.r,0,7); g.fill(); }
+  }
+}
 function partTick(dt){
   for(const p of parts){
-    if(p.k==="fog"){ p.x+=p.vx*dt; if(p.x-p.r>800) p.x=-p.r; }
+    if(p.k==="fog"){ if(now-landed<60){ p.push=(p.x<C.x?-1:1)*(120-Math.min(110,Math.abs(p.x-C.x)/3)); } p.push=(p.push||0)*(1-2*dt); p.x+=(p.vx+p.push)*dt; if(p.x-p.r>800) p.x=-p.r; if(p.x+p.r<0) p.x=800+p.r; }
     else if(p.k==="snow"){ p.v+=p.s*dt; p.u+=Math.sin(now/900+p.d)*0.0008; if(p.v>1) {p.v=0; p.u=Math.random();} }
     else if(p.k==="leaf"){ p.y+=p.vy*dt; p.x+=Math.sin(now/700+p.a)*20*dt; p.a+=p.va*dt; if(p.y>600){ p.y=-10; p.x=Math.random()*800; } }
     else if(p.k==="fly"){ p.x+=Math.sin(now/1800+p.ph)*40*dt; p.y+=Math.cos(now/1300+p.ph)*25*dt; }
@@ -497,6 +558,7 @@ function drawWindow(flash){
   g.strokeStyle="rgba(5,4,8,.95)"; g.lineWidth=4; const [bx,by]=Lw(0.24,0.5); g.beginPath(); g.moveTo(bx,by); g.lineTo(bx+4,by-70); g.lineTo(bx-14,by-110); g.moveTo(bx+3,by-60); g.lineTo(bx+28,by-95); g.moveTo(bx-6,by-92); g.lineTo(bx-30,by-104); g.stroke();
   if(seasonKey==="winter"||seasonKey==="christmas"){ g.fillStyle="rgba(240,245,255,.95)"; g.beginPath(); g.moveTo(q[3][0],q[3][1]); for(let u=0;u<=1;u+=0.1){ const [x,y]=Lw(lerp(0.18,0.47,u),0.5-0.03-0.02*Math.sin(u*9)); g.lineTo(x,y); } g.lineTo(q[2][0],q[2][1]); g.fill(); }
   for(const p of parts) if(p.k==="snow"){ const [x,y]=Lw(lerp(0.18,0.47,p.u),lerp(0.2,0.5,p.v)); g.fillStyle="rgba(255,255,255,.9)"; g.fillRect(x,y,2,2); }
+  if(flash>0.5&&bolt.length){ g.save(); g.strokeStyle="#fff"; g.lineWidth=2.2; g.shadowColor="#bcd0ff"; g.shadowBlur=14; g.beginPath(); bolt.forEach(([u,v],i)=>{ const [x,y]=Lw(u,v); i?g.lineTo(x,y):g.moveTo(x,y); }); g.stroke(); g.restore(); }
   g.restore();
   // frame and cross bars
   poly(q); g.strokeStyle="#3b2c22"; g.lineWidth=7; g.stroke();
@@ -571,7 +633,8 @@ function pumpkin(x,y,s,glow){
 
 // ---- the prop
 let EX=0,EY=0,ES=1;
-function eyeAt(lx,ly,lv,col,r){ const x=EX+lx*ES, y=EY+ly*ES; if(lv>0.02){ emit(x,y,r*ES*0.9,col,lv); light(x,y,60+170*lv,col,0.55*lv); } else { g.fillStyle="#120e14"; g.beginPath(); g.arc(lx,ly,r*0.6,0,7); g.fill(); } }
+let eyePts=[];
+function eyeAt(lx,ly,lv,col,r){ const x=EX+lx*ES, y=EY+ly*ES; if(r>=3.5&&lv>0.5) eyePts.push({x,y,lv,col}); if(lv>0.02){ emit(x,y,r*ES*0.9,col,lv); light(x,y,60+170*lv,col,0.55*lv); } else { g.fillStyle="#120e14"; g.beginPath(); g.arc(lx,ly,r*0.6,0,7); g.fill(); } }
 function grad(y0,y1,c0,c1){ const gr=g.createLinearGradient(0,y0,0,y1); gr.addColorStop(0,c0); gr.addColorStop(1,c1); return gr; }
 function drawChar(x,y,eyes){
   const t=now/1000, moving=Math.min(1,Math.abs(st.vel)/800), col=S.eye;
@@ -630,18 +693,92 @@ function drawChar(x,y,eyes){
   }
   g.restore();
 }
+// Guests: a few kinds of party guest in seasonal clothes, lit by the hall
+// light from the doorway so they read clearly in the dark room.
+const OUTFIT={
+  halloween:{top:"#e8781e",legs:"#2b2f45",hat:"witch",hatC:"#2a1d3a"},
+  christmas:{top:"#c8262e",legs:"#30384a",hat:"santa",hatC:"#d42a32"},
+  easter:{top:"#f2d24a",legs:"#5a6fb0",hat:"ears",hatC:"#ffffff"},
+  fall:{top:"#3f7a3a",legs:"#5a3a24",hat:"beanie",hatC:"#c0571e"},
+  winter:{top:"#2f78c8",legs:"#2a2a38",hat:"bobble",hatC:"#e8eef6"}};
+const GUESTS=[{h:1,hair:"#3a2416",skin:"#f1c7a0",phone:false},{h:0.74,hair:"#b5793a",skin:"#e8b48a",phone:false,kid:true},{h:1.06,hair:"#151018",skin:"#9c6a48",phone:true}];
+let guestN=0;
+function sendGuest(){
+  Object.assign(guest,{active:true,t0:now,said:null,reactAt:-1e9,type:GUESTS[guestN++%GUESTS.length],mood:null,leaveAt:0});
+  playBuf("sim/door",0.8); playBuf("sim/footsteps",0.55,{when:0.9});
+}
+function guestPos(){
+  const k=Math.min(1,(now-guest.t0)/2200); let x=lerp(660,500,k), walking=k<1;
+  if(guest.leaveAt&&now>guest.leaveAt){ const kk=Math.min(1,(now-guest.leaveAt)/(guest.mood==="scared"?700:1800)); x=lerp(guest.xStop,700,kk); walking=true; if(kk>=1) guest.active=false; }
+  return {x,walking,sc:lerp(0.85,1.15,Math.min(1,(x>=500?(660-x)/160:1)))*guest.type.h};
+}
 function drawGuest(){
   if(!guest.active) return;
-  const k=Math.min(1,(now-guest.t0)/2200); guest.x=lerp(660,500,k);
-  const sc=lerp(0.85,1.15,k), jump=Math.max(0,guest.jump-now)/600, jy=Math.sin(jump*Math.PI)*28;
-  const x=guest.x, base=596-jy;
-  g.fillStyle="#262230";
-  g.beginPath(); g.arc(x,base-150*sc,17*sc,0,7); g.fill();
-  g.beginPath(); g.roundRect(x-22*sc,base-128*sc,44*sc,80*sc,14*sc); g.fill();
-  g.fillRect(x-17*sc,base-52*sc,13*sc,52*sc); g.fillRect(x+4*sc,base-52*sc,13*sc,52*sc);
-  if(jump>0){ g.strokeStyle=g.fillStyle; g.lineWidth=9*sc; g.lineCap="round"; g.beginPath(); g.moveTo(x-18*sc,base-120*sc); g.lineTo(x-34*sc,base-170*sc); g.moveTo(x+18*sc,base-120*sc); g.lineTo(x+34*sc,base-170*sc); g.stroke(); }
-  else { const sw=Math.sin(now/160)*8*sc*(k<1?1:0); g.strokeStyle=g.fillStyle; g.lineWidth=9*sc; g.lineCap="round"; g.beginPath(); g.moveTo(x-20*sc,base-118*sc); g.lineTo(x-26*sc+sw,base-70*sc); g.moveTo(x+20*sc,base-118*sc); g.lineTo(x+26*sc-sw,base-70*sc); g.stroke(); }
-  if(guest.said&&now-guest.said.t0<2200) bubble(x+10,base-200*sc,guest.said.text,true);
+  const P=guestPos(), O=OUTFIT[seasonKey], T=guest.type, sc=P.sc, x=guest.x=P.x;
+  const jump=Math.max(0,guest.jump-now)/600, jy=Math.sin(jump*Math.PI)*28*(guest.mood==="scared"?1:0.5), base=596-jy;
+  const scared=guest.mood==="scared"&&now-guest.reactAt<2600, laughing=guest.mood==="laugh"&&now-guest.reactAt<3000;
+  const bob=P.walking?Math.abs(Math.sin(now/160))*3*sc:laughing?Math.abs(Math.sin(now/90))*3*sc:0;
+  const hy=base-150*sc-bob, face=P.walking&&guest.leaveAt?1:-1;
+  // hall light behind them, and a key light on them so they never vanish in the dark
+  light(x,base-90*sc,170*sc,[255,222,185],0.62); light(x-30,hy,90,[255,235,210],0.3);
+  g.save(); g.lineJoin="round"; g.lineCap="round";
+  const rim="rgba(255,236,205,.7)";
+  // legs
+  const stride=P.walking?Math.sin(now/160)*9*sc:0;
+  g.strokeStyle=O.legs; g.lineWidth=12*sc; g.beginPath(); g.moveTo(x-8*sc,base-55*sc-bob); g.lineTo(x-8*sc+stride,base-4); g.moveTo(x+8*sc,base-55*sc-bob); g.lineTo(x+8*sc-stride,base-4); g.stroke();
+  g.fillStyle="#141018"; g.fillRect(x-15*sc+stride,base-7,15*sc,7); g.fillRect(x+1*sc-stride,base-7,15*sc,7);
+  // body
+  g.fillStyle=O.top; g.beginPath(); g.roundRect(x-22*sc,base-130*sc-bob,44*sc,80*sc,14*sc); g.fill(); g.strokeStyle=rim; g.lineWidth=1.6; g.stroke();
+  if(seasonKey==="fall"){ g.strokeStyle="rgba(20,30,15,.45)"; g.lineWidth=2; for(let i=-1;i<=1;i++){ g.beginPath(); g.moveTo(x+i*12*sc,base-128*sc-bob); g.lineTo(x+i*12*sc,base-52*sc-bob); g.stroke(); } }
+  if(seasonKey==="christmas"){ g.fillStyle="#f4efe6"; for(let i=0;i<5;i++) g.fillRect(x-20*sc+i*9*sc,base-100*sc-bob,5*sc,5*sc); }
+  // arms
+  g.strokeStyle=O.top; g.lineWidth=10*sc;
+  const sw=P.walking?Math.sin(now/160)*10*sc:0, sy=base-120*sc-bob;
+  g.beginPath();
+  if(scared){ g.moveTo(x-19*sc,sy); g.lineTo(x-38*sc,sy-38*sc); g.lineTo(x-32*sc,sy-62*sc); g.moveTo(x+19*sc,sy); g.lineTo(x+38*sc,sy-38*sc); g.lineTo(x+32*sc,sy-62*sc); }
+  else if(laughing){ g.moveTo(x-19*sc,sy); g.lineTo(x-28*sc,sy+30*sc); g.lineTo(x-6*sc,sy+44*sc); g.moveTo(x+19*sc,sy); g.lineTo(x+28*sc,sy+30*sc); g.lineTo(x+6*sc,sy+44*sc); }
+  else if(T.phone){ g.moveTo(x-19*sc,sy); g.lineTo(x-26*sc+sw,sy+48*sc); g.moveTo(x+19*sc,sy); g.lineTo(x+20*sc,sy+26*sc); g.lineTo(x+4*sc,sy-6*sc); }
+  else { g.moveTo(x-19*sc,sy); g.lineTo(x-26*sc+sw,sy+48*sc); g.moveTo(x+19*sc,sy); g.lineTo(x+26*sc-sw,sy+48*sc); }
+  g.stroke();
+  // hands
+  g.fillStyle=T.skin; const hands=scared?[[-32,-62],[32,-62]]:laughing?[[-6,44],[6,44]]:T.phone?[[-26,48],[4,-6]]:[[-26,48],[26,48]];
+  hands.forEach(([dx,dy])=>{ g.beginPath(); g.arc(x+dx*sc+(dy===48?(dx<0?sw:-sw):0),sy+dy*sc,5*sc,0,7); g.fill(); });
+  if(T.phone&&!scared&&!laughing){ g.fillStyle="#111"; g.fillRect(x-2*sc,sy-22*sc,10*sc,16*sc); emit(x+3*sc,sy-14*sc,4*sc,[170,210,255],0.8); light(x+3*sc,sy-14*sc,70,[170,210,255],0.35); }
+  // head
+  g.fillStyle=T.skin; g.beginPath(); g.arc(x,hy,17*sc,0,7); g.fill(); g.strokeStyle=rim; g.lineWidth=1.6; g.stroke();
+  g.fillStyle=T.hair; g.beginPath();
+  if(scared){ for(let i=-3;i<=3;i++){ g.moveTo(x+i*5*sc-3*sc,hy-12*sc); g.lineTo(x+i*6*sc,hy-30*sc); g.lineTo(x+i*5*sc+3*sc,hy-12*sc); } g.fill(); }
+  else { g.arc(x,hy-3*sc,17.5*sc,Math.PI*1.02,Math.PI*1.98); g.fill(); }
+  // face (looks at the prop, which is to the left)
+  const ex=x-4*sc*(-face), eo=scared?3.4:2.4;
+  g.fillStyle="#fff"; g.beginPath(); g.arc(ex-6*sc,hy-1*sc,eo*sc,0,7); g.arc(ex+6*sc,hy-1*sc,eo*sc,0,7); g.fill();
+  g.fillStyle="#1a1414"; g.beginPath(); g.arc(ex-6*sc+face*0.8,hy-1*sc,1.4*sc,0,7); g.arc(ex+6*sc+face*0.8,hy-1*sc,1.4*sc,0,7); g.fill();
+  g.strokeStyle="#5a2a22"; g.fillStyle="#5a1a1a"; g.lineWidth=2*sc;
+  if(scared){ g.beginPath(); g.ellipse(ex,hy+9*sc,4*sc,6*sc,0,0,7); g.fill(); g.beginPath(); g.moveTo(ex-10*sc,hy-9*sc); g.lineTo(ex-3*sc,hy-11*sc); g.moveTo(ex+10*sc,hy-9*sc); g.lineTo(ex+3*sc,hy-11*sc); g.stroke(); }
+  else if(laughing){ g.beginPath(); g.arc(ex,hy+5*sc,7*sc,0.1,Math.PI-0.1); g.closePath(); g.fill(); }
+  else { g.beginPath(); g.arc(ex,hy+5*sc,5*sc,0.3,Math.PI-0.3); g.stroke(); }
+  // seasonal hat
+  g.fillStyle=O.hatC;
+  if(O.hat==="witch"){ g.beginPath(); g.ellipse(x,hy-13*sc,26*sc,6*sc,0,0,7); g.fill(); g.beginPath(); g.moveTo(x-14*sc,hy-14*sc); g.lineTo(x+14*sc,hy-14*sc); g.lineTo(x+10*sc,hy-52*sc); g.fill(); g.fillStyle="#e8a11e"; g.fillRect(x-13*sc,hy-20*sc,26*sc,5*sc); }
+  else if(O.hat==="santa"){ g.beginPath(); g.moveTo(x-17*sc,hy-11*sc); g.lineTo(x+17*sc,hy-11*sc); g.quadraticCurveTo(x+12*sc,hy-40*sc,x+26*sc,hy-30*sc); g.fill(); g.fillStyle="#fbfbf8"; g.fillRect(x-18*sc,hy-15*sc,36*sc,6*sc); g.beginPath(); g.arc(x+26*sc,hy-30*sc,4.5*sc,0,7); g.fill(); }
+  else if(O.hat==="ears"){ [-1,1].forEach(sd=>{ g.fillStyle="#fff"; g.beginPath(); g.ellipse(x+sd*8*sc,hy-34*sc,5*sc,15*sc,sd*0.2,0,7); g.fill(); g.fillStyle="#ffb6d6"; g.beginPath(); g.ellipse(x+sd*8*sc,hy-34*sc,2.2*sc,10*sc,sd*0.2,0,7); g.fill(); }); }
+  else if(O.hat==="beanie"){ g.beginPath(); g.arc(x,hy-6*sc,18*sc,Math.PI,0); g.fill(); g.fillStyle="#8e3a14"; g.fillRect(x-18*sc,hy-9*sc,36*sc,5*sc); }
+  else if(O.hat==="bobble"){ g.beginPath(); g.arc(x,hy-6*sc,18*sc,Math.PI,0); g.fill(); g.fillStyle="#c8262e"; g.fillRect(x-18*sc,hy-12*sc,36*sc,4*sc); g.fillStyle="#fff"; g.beginPath(); g.arc(x,hy-25*sc,6*sc,0,7); g.fill(); g.fillStyle="#e8eef6"; g.fillRect(x-14*sc,sy-6*sc,28*sc,8*sc); }
+  g.restore();
+  if(guest.said&&now-guest.said.t0<2200) bubble(x+10,base-210*sc,guest.said.text,true);
+}
+// Big shadow of the prop thrown on the right wall by the candles and lamps.
+const shc=document.createElement("canvas"); shc.width=240; shc.height=260; const shx=shc.getContext("2d");
+function wallShadow(x,y,eyes,strength){
+  const keepE=emissive.length, keepL=lights.length, keepP=eyePts.length, main=g, ex=EX, ey=EY;
+  shx.setTransform(1,0,0,1,0,0); shx.globalCompositeOperation="source-over"; shx.clearRect(0,0,240,260);
+  g=shx; try{ drawChar(120,120,eyes); } finally { g=main; }
+  emissive.length=keepE; lights.length=keepL; eyePts.length=keepP; EX=ex; EY=ey;
+  shx.globalCompositeOperation="source-in"; shx.fillStyle="#000"; shx.fillRect(0,0,240,260);
+  const s=1.9, wob=Math.sin(now/90)*2+Math.sin(now/37);
+  g.save(); poly(quad(Rw,0,1,0,0.7)); g.clip(); g.globalAlpha=0.16*strength;
+  for(const o of [-3,0,3]) g.drawImage(shc,x+120-120*s+o+wob,y-30-120*s,240*s,260*s);
+  g.restore();
 }
 function bubble(x,y,text,right){
   g.font="700 17px 'Atkinson Hyperlegible',sans-serif"; const w=g.measureText(text).width+22;
@@ -651,29 +788,33 @@ function bubble(x,y,text,right){
 }
 // grain tile, made once
 const grain=document.createElement("canvas"); grain.width=grain.height=128; { const gg=grain.getContext("2d"), id=gg.createImageData(128,128); for(let i=0;i<id.data.length;i+=4){ const v=Math.random()*255; id.data[i]=id.data[i+1]=id.data[i+2]=v; id.data[i+3]=255; } gg.putImageData(id,0,0); }
-let grainPat=null;
+let grainPat=null, frost=0;
 
 function frame(ts){
   const dt=Math.min(0.05,(ts-lastT)/1000); lastT=ts; now+=dt*1000;
-  physics(dt); showTick(); triggers(); wledTick(); partTick(dt); ambientTick();
+  physics(dt); showTick(); triggers(); wledTick(); partTick(dt); fxTick(dt); ambientTick();
   if(guest.active&&guest.x<590&&guest.x>480) pirHot=now+300;
   const frac=st.pos/st.drop;
-  if(Math.abs(prevVel)>1200&&Math.abs(st.vel)<10&&frac>0.9&&!reduceMotion) shakeUntil=now+380;
-  prevVel=st.vel;
-  if(guest.active&&frac>0.75&&now-guest.reactAt>3000&&now-guest.t0>1500){
+  if(Math.abs(prevVel)>1200&&Math.abs(st.vel)<10&&frac>0.9){ if(!reduceMotion) shakeUntil=now+380; landed=now; burst(C.x,lerp(C.y+34,430,frac)+40,26); }
+  if(prevFrac<0.03&&st.vel>700) burst(C.x,C.y+12,22,BURST[seasonKey],-20);
+  if(seasonKey==="winter"&&st.show&&frac>0.75&&Math.random()<0.12) breath(C.x+(Math.random()-0.5)*6,lerp(C.y+34,430,frac)-2);
+  prevVel=st.vel; prevFrac=frac;
+  if(guest.active&&!guest.leaveAt&&frac>0.75&&now-guest.reactAt>3000&&now-guest.t0>1500){
     guest.reactAt=now; guest.jump=now+600;
     const funny=["peekaboo","naughty","peek","hop","jingle","disco","shuffle","boogie","eggs","bells","stuck","freeze"].includes(st.show)||seasonKey==="easter";
     const lines=funny?["haha!","awww!","so cute!","LOL","again!"]:["AAAH!","NOPE!","WHAT?!","EEEK!","MOM!"];
     guest.said={text:lines[Math.floor(Math.random()*lines.length)],t0:now};
     funny?score.laughed++:score.scared++;
+    guest.mood=funny?"laugh":"scared"; guest.xStop=guest.x; guest.leaveAt=now+(funny?3200:2200);
+    playBuf(funny?(Math.random()<0.5?"sim/laugh-guest":"sim/laugh-guest2"):(Math.random()<0.5?"sim/gasp":"sim/gasp2"),0.75,{when:0.1});
   }
-  if(guest.active&&now-guest.t0>14000) guest.active=false;
+  if(guest.active&&!guest.leaveAt&&now-guest.t0>14000){ guest.xStop=guest.x; guest.leaveAt=now; guest.mood=null; }
 
   // light from the strip, in 8 blobs per side
   let avg=[0,0,0]; leds.forEach(c=>{avg[0]+=c[0];avg[1]+=c[1];avg[2]+=c[2]}); avg=avg.map(v=>v/NLED);
   const stripI=(avg[0]+avg[1]+avg[2])/(3*255);
   const flash=S.wled[st.wled-1].fx==="lightning"&&now<boltUntil?(reduceMotion?0.3:1):0;
-  lights=[]; emissive=[];
+  lights=[]; emissive=[]; eyePts=[];
   for(let gI=0;gI<14;gI++){ const i0=gI*4; let c=[0,0,0]; for(let j=0;j<4;j++){ const l=leds[i0+j]; c[0]+=l[0]/4;c[1]+=l[1]/4;c[2]+=l[2]/4; } const [x,y]=ledPos(i0+1.5); const b=(c[0]+c[1]+c[2])/765; if(b>0.01) light(x,y+40,230,c.map(v=>Math.min(255,v/Math.max(b,0.2))),Math.min(1,b*1.6)); }
   const [wx,wy]=Lw(0.33,0.36); light(wx,wy+40,170,R.moon,0.22+flash*0.5);
   if(flash) light(400,300,700,[230,235,255],0.6*flash);
@@ -696,8 +837,11 @@ function frame(ts){
   g.strokeStyle="rgba(230,230,240,.22)"; g.lineWidth=1; g.beginPath(); g.moveTo(C.x,C.y+10); g.lineTo(C.x,y-14); g.stroke();
   g.fillStyle="#050407"; g.fillRect(C.x-17,C.y-8,34,18);
   const shd=g.createRadialGradient(C.x+10,y+70,0,C.x+10,y+70,80); shd.addColorStop(0,`rgba(0,0,0,${0.25+stripI*0.4})`); shd.addColorStop(1,"rgba(0,0,0,0)"); g.fillStyle=shd; g.fillRect(C.x-80,y-10,180,170);
+  const candle=seasonKey==="halloween"||seasonKey==="fall"||seasonKey==="winter"?1:0.6;
+  wallShadow(C.x,y,eyes,candle*(0.8+0.2*Math.sin(now/70)));
   drawChar(C.x,y,eyes);
   drawGuest();
+  drawFx("room");
   // PIR
   g.fillStyle="#d9d4de"; g.beginPath(); g.arc(240,118,9,Math.PI,0); g.fill(); g.fillRect(231,118,18,6);
 
@@ -714,11 +858,22 @@ function frame(ts){
   leds.forEach((c,i)=>{ const [x,y]=ledPos(i); const rg=g.createRadialGradient(x,y,0,x,y,15); rg.addColorStop(0,rgba(c,0.9)); rg.addColorStop(1,rgba(c,0)); g.fillStyle=rg; g.fillRect(x-15,y-15,30,30); g.fillStyle=rgba(c.map(v=>Math.min(255,v+70)),1); g.fillRect(x-2,y-2,4,4); });
   for(const e of emissive){ const R2=e.r*4.5; const rg=g.createRadialGradient(e.x,e.y,0,e.x,e.y,R2); rg.addColorStop(0,rgba(e.c,0.95*e.a)); rg.addColorStop(0.25,rgba(e.c,0.45*e.a)); rg.addColorStop(1,rgba(e.c,0)); g.fillStyle=rg; g.fillRect(e.x-R2,e.y-R2,R2*2,R2*2); g.fillStyle=rgba(e.c.map(v=>v*0.4+153*e.a),Math.min(1,e.a*1.2)); g.beginPath(); g.arc(e.x,e.y,e.r*0.55,0,7); g.fill(); }
   for(const c of confetti){ g.save(); g.translate(c.x,c.y); g.rotate(c.a); g.fillStyle=rgba(c.c,0.8); g.fillRect(-3,-1.5,6,3); g.restore(); }
+  // eye beams cutting through the haze when the eyes are bright and the prop is down
+  if(frac>0.35) for(const e of eyePts){ const tx=guest.active?guest.x:e.x+(e.x<C.x?-90:90), ty=guest.active?470:590; const ang=Math.atan2(ty-e.y,tx-e.x), w=34;
+    const bg=g.createLinearGradient(e.x,e.y,tx,ty); bg.addColorStop(0,rgba(e.col,0.22*e.lv)); bg.addColorStop(1,rgba(e.col,0));
+    g.fillStyle=bg; g.beginPath(); g.moveTo(e.x,e.y); g.lineTo(tx+Math.sin(ang)*w,ty-Math.cos(ang)*w); g.lineTo(tx-Math.sin(ang)*w,ty+Math.cos(ang)*w); g.closePath(); g.fill(); }
+  drawFx("lit");
   g.restore();
   g.fillStyle=pirHot>now?"#ff3030":"#3a1010"; g.beginPath(); g.arc(240,128,2.5,0,7); g.fill();
   // fog drifts over everything near the floor
   for(const p of parts) if(p.k==="fog"){ const rg=g.createRadialGradient(p.x,p.y,0,p.x,p.y,p.r); rg.addColorStop(0,rgba(mix([160,150,180],avg,0.5),0.12)); rg.addColorStop(1,"rgba(160,150,180,0)"); g.fillStyle=rg; g.fillRect(p.x-p.r,p.y-p.r,p.r*2,p.r*2); }
-  if(flash){ g.fillStyle=`rgba(235,240,255,${0.2*flash})`; g.fillRect(0,0,800,600); }
+  if(flash){ g.fillStyle=`rgba(235,240,255,${0.28*flash})`; g.fillRect(0,0,800,600); }
+  drawFx("dark");
+  // jump-scare pulse when the prop slams down, frost creeping in for the yeti
+  const sinceLand=now-landed;
+  if(sinceLand<700&&(seasonKey==="halloween"||seasonKey==="winter")){ const k=1-sinceLand/700, col=seasonKey==="halloween"?[200,0,20]:[190,225,255];
+    const pg=g.createRadialGradient(400,300,150,400,300,520); pg.addColorStop(0,rgba(col,0)); pg.addColorStop(1,rgba(col,(reduceMotion?0.2:0.45)*k)); g.fillStyle=pg; g.fillRect(0,0,800,600); }
+  if(seasonKey==="winter"){ frost=lerp(frost,st.show&&frac>0.6?1:0,0.03); if(frost>0.02){ const fg=g.createRadialGradient(400,300,240,400,300,520); fg.addColorStop(0,"rgba(220,240,255,0)"); fg.addColorStop(1,`rgba(220,240,255,${0.38*frost})`); g.fillStyle=fg; g.fillRect(0,0,800,600); } }
   const vg=g.createRadialGradient(400,300,220,400,300,560); vg.addColorStop(0,"rgba(0,0,0,0)"); vg.addColorStop(1,"rgba(0,0,0,.65)"); g.fillStyle=vg; g.fillRect(0,0,800,600);
   if(!grainPat) grainPat=g.createPattern(grain,"repeat");
   g.save(); g.globalAlpha=0.045; g.translate(Math.random()*128,Math.random()*128); g.fillStyle=grainPat; g.fillRect(-128,-128,1056,856); g.restore();
@@ -731,7 +886,7 @@ const $=id=>document.getElementById(id);
 function buildSeasonUI(){
   S=SEASONS[seasonKey]; R=ROOM[seasonKey];
   document.documentElement.style.setProperty("--accent",S.accent); document.documentElement.style.setProperty("--accent-ink",S.ink);
-  stopAll(); st.pos=0; st.target=0; st.wled=1; confetti=[]; initParticles(); setVerb(); startAmbient();
+  stopAll(); st.pos=0; st.target=0; st.wled=1; confetti=[]; fx=[]; initParticles(); setVerb(); preloadSeason(); startAmbient();
   $("who").innerHTML=S.char+"<small>"+S.label+"</small>";
   $("ptitle").textContent=S.char.toUpperCase(); document.querySelector(".url").textContent="http://"+S.host;
   $("shows").innerHTML=""; Object.entries(S.shows).forEach(([id,[label,hint]])=>{ const b=document.createElement("button"); b.className="show"; b.dataset.id=id; b.innerHTML=label+"<small>"+hint+"</small>"; b.onclick=()=>{wake(); startShow(id)}; $("shows").appendChild(b); });
@@ -763,11 +918,12 @@ $("arm").onclick=()=>{st.armed=!st.armed};
 $("party").onclick=()=>{st.party=!st.party; st.nextParty=now+5000};
 $("eyes").onchange=e=>{st.eyes=e.target.value};
 $("vol").oninput=e=>{st.vol=+e.target.value; setVol()};
-$("guest").onclick=()=>{ guest.active=true; guest.t0=now; guest.said=null; guest.reactAt=-1e9; };
-$("snd").onclick=()=>{ soundOn=!soundOn; if(soundOn){ audioInit(); ac.resume(); startAmbient(); } else { stopAudio(); stopAmbient(); } $("snd").setAttribute("aria-pressed",soundOn); $("snd").textContent=soundOn?"Sound on":"Sound off"; };
+$("guest").onclick=()=>{ wake(); sendGuest(); };
+$("snd").onclick=()=>{ soundOn=!soundOn; if(soundOn){ audioInit(); ac.resume(); preloadSeason(); startAmbient(); } else { stopAudio(); stopAmbient(); } $("snd").setAttribute("aria-pressed",soundOn); $("snd").textContent=soundOn?"Sound on":"Sound off"; };
 try{ const k=localStorage.getItem("sh-season"); if(k&&SEASONS[k]) seasonKey=k; }catch(e){}
 fitCanvas(); buildSeasonUI(); addEventListener("resize",fitCanvas);
 setTimeout(()=>startShow(Object.keys(S.shows)[0]),900);
 requestAnimationFrame(frame);
 </script>
-</body></html>
+
+</html>

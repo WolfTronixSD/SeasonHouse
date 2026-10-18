@@ -1,6 +1,6 @@
 # SD card sounds
 
-FAT32 micro-SD card with one numbered folder per season and files `001.mp3` to `008.mp3` in each. Free sources: freesound.org, pixabay.com/sound-effects.
+FAT32 micro-SD card with one numbered folder per season and files `001.mp3` to `008.mp3` in each. **A ready-made pack is in this folder:** copy `01` to `05` to the root of the card and you're done. They're the same files the simulator plays. Sources and licences are in [CREDITS.md](CREDITS.md); rebuild or tweak them with `tools/soundpack/build.py`.
 
 ```
 01/  Halloween
@@ -10,7 +10,7 @@ FAT32 micro-SD card with one numbered folder per season and files `001.mp3` to `
 05/  Winter
 ```
 
-Slot 7 is the dance track (30 to 45 s). The rest are short effects.
+Slot 7 is the dance track (about 35 s). The rest are short effects and voice lines.
 
 | Slot | Halloween | Christmas | Easter | Fall | Winter |
 |---|---|---|---|---|---|
@@ -20,7 +20,9 @@ Slot 7 is the dance track (30 to 45 s). The rest are short effects.
 | 004.mp3 | Creaky rope | Chimney creak | Spring sproing | Branch creak | Ice crack |
 | 005.mp3 | Heartbeat | Sleigh bells | Ticking clock | Wind gust | Howling wind |
 | 006.mp3 | BOING | BOING | BOING | BOING | BOING |
-| 007.mp3 | Spider Disco | Jingle Bell Rock | Hop Hop Hooray | Nutty Shuffle | Blizzard Boogie |
+| 007.mp3 | Spider Disco (Toccata in D minor, disco beat) | Jingle Bells, rock beat | Hop Hop Hooray | Nutty Shuffle (banjo) | Blizzard Boogie (boogie-woogie piano) |
 | 008.mp3 | "Hiii!" | "Naughty or nice?" | "Happy Easter!" | "Mine! All mine!" | "Brrrr!" |
 
 Tip: normalise everything to the same loudness, and put 0.1 s of silence at the start of each file so the DFPlayer does not clip the first syllable.
+
+To swap in your own sound, just replace the file with the same name (keep the 3-digit number). Everything is mono MP3 at 44.1 kHz, levelled to the same loudness, with 0.1 s of silence at the start.
