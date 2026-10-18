@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Rat Express</title>
+<style>
+:root{--bg:#0b0710;--panel:#1a1022;--line:#3a2547;--txt:#eadff2;--dim:#9c88aa;--acc:#ff6a00;--red:#e0182d;--grn:#5fd16b}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--txt);font:16px/1.4 system-ui,sans-serif}
+header{padding:18px 16px 8px;text-align:center}
+h1{margin:0;font-size:28px;letter-spacing:1px;color:var(--acc);text-shadow:0 0 12px #ff6a0080}
+#st{color:var(--dim);font-size:14px;margin-top:4px}
+main{max-width:720px;margin:auto;padding:8px 16px 40px}
+section{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;margin:12px 0}
+h2{margin:0 0 10px;font-size:15px;text-transform:uppercase;letter-spacing:2px;color:var(--dim)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+button{font:inherit;color:var(--txt);background:#2a1836;border:1px solid var(--line);border-radius:10px;padding:14px 10px;cursor:pointer}
+button:active{transform:scale(.97)}
+button.show small{display:block;font-weight:400;color:var(--dim);font-size:12px}
+button.show{background:linear-gradient(160deg,#3b1450,#22102c);font-weight:600}
+button.show.on{outline:2px solid var(--acc);box-shadow:0 0 18px #ff6a0090}
+#stop{width:100%;background:var(--red);border:0;font-size:20px;font-weight:800;padding:16px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:6px 0}
+.row label{min-width:90px;color:var(--dim)}
+input[type=range]{flex:1}input[type=text],input[type=number],select{font:inherit;background:#120a18;color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:8px;min-width:0;flex:1}
+.tog{padding:10px 14px}.tog.on{background:var(--grn);color:#062;border-color:var(--grn);font-weight:700}
+.pill{display:inline-block;padding:2px 8px;border-radius:99px;background:#2a1836;margin:2px;font-size:13px}
+.ok{color:var(--grn)}.bad{color:var(--red)}
+#bar{height:10px;background:#120a18;border-radius:99px;overflow:hidden;border:1px solid var(--line)}
+#bar i{display:block;height:100%;width:0;background:var(--acc);transition:width .3s}
+
+button.show{background:linear-gradient(160deg,#4a3a20,#241a0e)}</style></head><body>
+<header><h1 id="ttl">RAT EXPRESS</h1><div id="st">connecting...</div></header>
+<main>
+<section><button id="stop" onclick="api('stop')">STOP</button></section>
+<section><h2>Runs</h2><div class="grid" id="shows"></div></section>
+<section><h2>Triggers</h2>
+ <div class="row"><button class="tog" id="arm" onclick="api('arm?on='+(S.armed?0:1))">Motion sensor</button>
+ <button class="tog" id="party" onclick="api('party?on='+(S.party?0:1))">Party mode (random runs)</button></div>
+ <div id="sensors"></div>
+</section>
+<section><h2>Sound</h2>
+ <div class="row"><label>Volume</label><input type="range" id="vol" min="0" max="30" onchange="api('vol?v='+this.value)"></div>
+ <div class="grid" id="sounds"></div>
+</section>
+<section><h2>Setup: track length</h2>
+ <div id="bar"><i></i></div>
+ <div class="row" style="margin-top:8px"><span id="pos"></span></div>
+ <div class="row"><button onclick="api('jog?steps=-500')">Back 500</button><button onclick="api('jog?steps=-100')">Back 100</button>
+  <button onclick="api('jog?steps=100')">Out 100</button><button onclick="api('jog?steps=500')">Out 500</button></div>
+ <div class="row"><button onclick="api('setlen')">Save this spot as the end of the track</button><button onclick="api('home')">Back to the start</button></div>
+</section>
+<section><h2>Firmware update (over Wi-Fi)</h2>
+ <div class="row"><label for="okey">Update key</label><input type="text" id="okey" autocomplete="off"></div>
+ <div class="row"><input type="file" id="ofiles" multiple><button onclick="upload()">Upload</button><button onclick="reboot()">Reboot</button></div>
+ <pre id="olog" style="white-space:pre-wrap;color:var(--dim);font-size:13px;margin:6px 0 0"></pre>
+</section>
+</main>
+<script>
+let S={};const $=id=>document.getElementById(id);
+async function api(p){try{const r=await fetch('/api/'+p);S=await r.json();draw()}catch(e){$('st').textContent='rat offline?'}}
+function btn(parent,html,cls,fn){const b=document.createElement('button');b.innerHTML=html;if(cls)b.className=cls;b.onclick=fn;$(parent).appendChild(b);return b}
+function setv(id,v){if(document.activeElement!==$(id))$(id).value=v}
+async function upload(){const k=encodeURIComponent($('okey').value);for(const f of $('ofiles').files){
+ const n=(f.name.endsWith('.html')?'www/':'')+f.name;$('olog').textContent+=n+'... ';
+ try{const r=await fetch('/api/ota?file='+encodeURIComponent(n)+'&key='+k,{method:'POST',body:f});const d=await r.json();
+ $('olog').textContent+=(d.ok?'installed ('+d.bytes+' bytes)':'FAILED: '+d.error)+'\n'}catch(e){$('olog').textContent+='FAILED: '+e+'\n'}}
+ $('olog').textContent+='Press Reboot to run the new code.\n'}
+async function reboot(){const r=await fetch('/api/reboot?key='+encodeURIComponent($('okey').value));const d=await r.json();
+ $('olog').textContent+=d.ok?'Rebooting. This page reconnects in about 10 s.\n':'Reboot refused: '+d.error+'\n'}
+let built=0;
+function draw(){
+ if(!built&&S.shows){built=1;S.shows.forEach(s=>btn('shows',s.label+'<small>'+s.hint+'</small>','show',()=>api('run?show='+s.id)).dataset.id=s.id);
+  S.sounds.forEach((n,i)=>btn('sounds',n,'',()=>api('sound?t='+(i+1))))}
+ $('st').innerHTML=(S.show?'<b style="color:var(--acc)">RUNNING: '+S.show+'</b>':(S.homing?'going home...':(S.homed?'hiding in its hole':'<span class=bad>not homed</span>')))+' &middot; '+S.ip;
+ document.querySelectorAll('.show').forEach(b=>b.classList.toggle('on',b.dataset.id==S.show));
+ $('arm').classList.toggle('on',S.armed);$('party').classList.toggle('on',S.party);setv('vol',S.vol);
+ $('sensors').innerHTML='<span class=pill>PIR: '+(S.pir?'<b class=ok>motion</b>':'quiet')+'</span><span class=pill>Home switch: '+(S.top?'rat home':'open')+'</span>';
+ $('pos').textContent='Position '+S.pos+' / '+S.len+' steps';$('bar').firstChild.style.width=Math.min(100,100*S.pos/S.len)+'%';
+}
+api('status');setInterval(()=>api('status'),1000);
+</script></body></html>

@@ -2,12 +2,18 @@
 from compat import json
 import config
 
-DEFAULTS = {"season": "halloween", "drop": config.DROP_STEPS, "vol": config.DEFAULT_VOLUME,
+
+
+def defaults():
+    # other props list their own defaults in config.DEFAULT_SETTINGS
+    if hasattr(config, "DEFAULT_SETTINGS"):
+        return dict(config.DEFAULT_SETTINGS)
+    return {"season": "halloween", "drop": config.DROP_STEPS, "vol": config.DEFAULT_VOLUME,
             "armed": True, "wled": config.WLED_HOST}
 
 
 def load():
-    s = dict(DEFAULTS)
+    s = defaults()
     try:
         with open("settings.json") as f:
             s.update(json.load(f))

@@ -70,6 +70,15 @@ select{font:inherit;background:#0b0910;color:var(--ink);border:1px solid var(--l
 .card p{margin:4px 0;color:var(--mute);max-width:72ch}
 .card ul{margin:6px 0 0;padding-left:18px}
 .card li{margin:3px 0}
+.url-s{float:right;font:500 11px var(--mono);letter-spacing:0;text-transform:none;color:var(--mute);opacity:.8}
+.pst{font:500 12px var(--mono);color:var(--ink);margin-bottom:8px;min-height:1.3em}
+#props{margin-top:18px}
+#props .btns{grid-template-columns:repeat(auto-fill,minmax(110px,1fr))}
+#props button.on{outline:2px solid var(--accent)}
+input#sname{flex:1;min-width:0;font:inherit;background:#0b0910;color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:9px}
+.go{background:var(--stop);border:0;color:#fff;font:800 16px var(--display)}
+.board{margin:6px 0;padding-left:22px;font-size:14px;font-variant-numeric:tabular-nums}
+.board b{float:right;color:var(--accent)}
 </style>
 
 <div class="wrap">
@@ -95,6 +104,7 @@ select{font:inherit;background:#0b0910;color:var(--ink);border:1px solid var(--l
       <div class="card" id="seasonCard"></div>
     </div>
 
+    <div>
     <div class="phone" aria-label="Control page as served by the ESP32">
       <div class="url">http://spider.local</div>
       <h2 id="ptitle">CORNER SPIDER</h2>
@@ -119,8 +129,35 @@ select{font:inherit;background:#0b0910;color:var(--ink);border:1px solid var(--l
         <div class="row"><button id="setdrop">Save spot as full drop</button><button id="home">Re-home</button></div>
       </div>
     </div>
+    <div class="phone" id="props" aria-label="The other props' control pages">
+      <h2 style="font-size:19px">MORE PROPS</h2>
+      <div class="sec"><h3>&#9889; Lightning Window <span class="url-s">storm.local</span></h3>
+        <div class="pst" id="stst"></div>
+        <div class="btns" id="stb"></div>
+        <div class="row"><button class="tog" id="stauto" aria-pressed="false">Auto storm</button><button class="tog" id="starm" aria-pressed="false">Strike on motion</button></div>
+        <div class="row"><label for="stlvl">Storm</label><select id="stlvl"><option value="1">Distant rumbles</option><option value="2" selected>Proper storm</option><option value="3">Apocalypse</option></select></div>
+      </div>
+      <div class="sec"><h3>&#128561; Scream-o-Meter <span class="url-s">scream.local</span></h3>
+        <div class="pst" id="scst"></div>
+        <div class="row"><input id="sname" maxlength="12" placeholder="Name" aria-label="Screamer's name"><button id="scgo" class="go">SCREAM!</button></div>
+        <div class="row"><button id="mic" aria-pressed="false">Use my microphone</button></div>
+        <ol class="board" id="board"></ol>
+        <div class="row"><button id="scclear">Clear the board</button></div>
+      </div>
+      <div class="sec"><h3>&#129514; Cauldron of Doom <span class="url-s">cauldron.local</span></h3>
+        <div class="pst" id="cast"></div>
+        <div class="btns" id="cab"></div>
+        <div class="row"><label for="cafog">Fog</label><select id="cafog"><option value="off">Off</option><option value="cycle" selected>20 s on, 40 s off</option><option value="on">Always on</option></select><button class="tog" id="caarm" aria-pressed="true">Motion sensor</button></div>
+      </div>
+      <div class="sec"><h3>&#128000; Rat Express <span class="url-s">rat.local</span></h3>
+        <div class="pst" id="rast"></div>
+        <div class="btns" id="rab"></div>
+        <div class="row"><button class="tog" id="raarm" aria-pressed="true">Motion sensor</button></div>
+      </div>
+    </div>
+    </div>
   </div>
-  <p class="note">Timings are the firmware's real speeds (2000 steps/s drop on a 30 mm spool). The motion cooldown is shortened from 20 s to 8 s and party mode fires every 20 to 40 s instead of 1 to 4 minutes, so you don't wait around. The sounds are the actual MP3 files for the SD card (real recordings, voice lines and music, credits in the repo), played one at a time like the DFPlayer does; the clicks are the piezo chitter. Guests come in through the door; the hall light behind them shows who they are. Flashing and shaking are toned down if your device asks for reduced motion.</p>
+  <p class="note">Timings are the firmware's real speeds (2000 steps/s drop on a 30 mm spool). The motion cooldown is shortened from 20 s to 8 s and party mode fires every 20 to 40 s instead of 1 to 4 minutes, so you don't wait around. The sounds are the actual MP3 files for the SD card (real recordings, voice lines and music, credits in the repo), played one at a time like the DFPlayer does; the clicks are the piezo chitter. Guests come in through the door; the hall light behind them shows who they are. The other four props run their own firmware logic too: the window flashes first and the thunder follows 1 to 3 s later (every 10th strike brings the axe man), the Scream-o-Meter uses your microphone if you allow it, the cauldron's hand rises when a guest lingers, and the rat runs behind their ankles as they come in. Flashing and shaking are toned down if your device asks for reduced motion.</p>
 </div>
 
 <script>
@@ -255,6 +292,7 @@ function preloadSeason(){
   if(!ac) return;
   for(let n=1;n<=8;n++){ const k=slotKey(n); loadSample(k,["sounds/"+k+".mp3","../sd-card/"+k+".mp3"]); }
   SIM_SOUNDS.concat("amb-"+seasonKey).forEach(n=>loadSample("sim/"+n,["sounds/sim/"+n+".mp3"]));
+  preloadProps();
 }
 function playBuf(key,g=1,{when=0,loop=false,dest=sampleBus,rate=1}={}){
   const b=bufs[key]; if(!soundOn||!ac||!b) return null;
@@ -500,15 +538,15 @@ function breath(x,y){ fx.push({kind:"breath",x,y,vx:(Math.random()-0.5)*20,vy:-8
 function fxTick(dt){
   for(const p of fx){ p.life-=p.decay*dt;
     if(p.kind==="bat"){ p.x+=p.vx*dt; p.y+=p.vy*dt+Math.sin(now/90+p.ph)*0.8; continue; }
-    const grav={dust:90,snow:40,glitter:70,leaf:35,breath:-10}[p.kind]; p.vy+=grav*dt; p.vx*=1-1.8*dt; p.vy*=1-(p.kind==="leaf"?2.5:1.2)*dt;
-    p.x+=p.vx*dt+(p.kind==="leaf"?Math.sin(now/300+p.rot)*30*dt:0); p.y+=p.vy*dt; p.rot+=3*dt; if(p.kind==="breath") p.r+=18*dt; }
+    const grav={dust:90,snow:40,glitter:70,leaf:35,breath:-10,cfog:-4}[p.kind]; p.vy+=grav*dt; p.vx*=1-1.8*dt; p.vy*=1-(p.kind==="leaf"?2.5:1.2)*dt;
+    p.x+=p.vx*dt+(p.kind==="leaf"?Math.sin(now/300+p.rot)*30*dt:0); p.y+=p.vy*dt; p.rot+=3*dt; if(p.kind==="breath") p.r+=18*dt; if(p.kind==="cfog") p.r+=10*dt; }
   fx=fx.filter(p=>p.life>0&&p.y<620&&p.x>-40&&p.x<840);
 }
 function drawFx(pass){
   for(const p of fx){ const a=Math.max(0,Math.min(1,p.life));
-    if(pass==="lit"){ if(p.kind==="glitter"){ g.fillStyle=rgba(p.c,a); g.fillRect(p.x-1.5,p.y-1.5,3,3); } continue; }
+    if(pass==="lit"){ if(p.kind==="cfog"){ const rg=g.createRadialGradient(p.x,p.y,0,p.x,p.y,p.r); rg.addColorStop(0,rgba(p.c,0.05*Math.min(1,a*1.6))); rg.addColorStop(0.5,rgba(p.c,0.025*Math.min(1,a*1.6))); rg.addColorStop(1,rgba(p.c,0)); g.fillStyle=rg; g.fillRect(p.x-p.r,p.y-p.r,p.r*2,p.r*2); } if(p.kind==="glitter"){ g.fillStyle=rgba(p.c,a); g.fillRect(p.x-1.5,p.y-1.5,3,3); } continue; }
     if(p.kind==="bat"){ if(pass!=="dark") continue; const f=Math.sin(now/45+p.ph); g.fillStyle="#08060b"; g.beginPath(); g.moveTo(p.x,p.y); g.quadraticCurveTo(p.x-9,p.y-10*f,p.x-17,p.y-2); g.quadraticCurveTo(p.x-9,p.y+2,p.x,p.y+3); g.quadraticCurveTo(p.x+9,p.y+2,p.x+17,p.y-2); g.quadraticCurveTo(p.x+9,p.y-10*f,p.x,p.y); g.fill(); continue; }
-    if(pass!=="room") continue;
+    if(pass!=="room"||p.kind==="cfog") continue;
     if(p.kind==="leaf"){ g.save(); g.translate(p.x,p.y); g.rotate(p.rot); g.fillStyle=rgba(p.c,a); g.beginPath(); g.ellipse(0,0,6,3,0,0,7); g.fill(); g.restore(); }
     else if(p.kind==="breath"){ const rg=g.createRadialGradient(p.x,p.y,0,p.x,p.y,p.r); rg.addColorStop(0,rgba(p.c,0.35*a)); rg.addColorStop(1,rgba(p.c,0)); g.fillStyle=rg; g.fillRect(p.x-p.r,p.y-p.r,p.r*2,p.r*2); }
     else if(p.kind==="glitter"){ g.fillStyle=rgba(p.c,a*0.6); g.fillRect(p.x-1,p.y-1,2,2); }
@@ -792,28 +830,22 @@ let grainPat=null, frost=0;
 
 function frame(ts){
   const dt=Math.min(0.05,(ts-lastT)/1000); lastT=ts; now+=dt*1000;
-  physics(dt); showTick(); triggers(); wledTick(); partTick(dt); fxTick(dt); ambientTick();
+  physics(dt); showTick(); triggers(); wledTick(); partTick(dt); fxTick(dt); ambientTick(); stormTick(); screamTick(); cauldronTick(dt); ratTick(dt);
   if(guest.active&&guest.x<590&&guest.x>480) pirHot=now+300;
   const frac=st.pos/st.drop;
   if(Math.abs(prevVel)>1200&&Math.abs(st.vel)<10&&frac>0.9){ if(!reduceMotion) shakeUntil=now+380; landed=now; burst(C.x,lerp(C.y+34,430,frac)+40,26); }
   if(prevFrac<0.03&&st.vel>700) burst(C.x,C.y+12,22,BURST[seasonKey],-20);
   if(seasonKey==="winter"&&st.show&&frac>0.75&&Math.random()<0.12) breath(C.x+(Math.random()-0.5)*6,lerp(C.y+34,430,frac)-2);
   prevVel=st.vel; prevFrac=frac;
-  if(guest.active&&!guest.leaveAt&&frac>0.75&&now-guest.reactAt>3000&&now-guest.t0>1500){
-    guest.reactAt=now; guest.jump=now+600;
-    const funny=["peekaboo","naughty","peek","hop","jingle","disco","shuffle","boogie","eggs","bells","stuck","freeze"].includes(st.show)||seasonKey==="easter";
-    const lines=funny?["haha!","awww!","so cute!","LOL","again!"]:["AAAH!","NOPE!","WHAT?!","EEEK!","MOM!"];
-    guest.said={text:lines[Math.floor(Math.random()*lines.length)],t0:now};
-    funny?score.laughed++:score.scared++;
-    guest.mood=funny?"laugh":"scared"; guest.xStop=guest.x; guest.leaveAt=now+(funny?3200:2200);
-    playBuf(funny?(Math.random()<0.5?"sim/laugh-guest":"sim/laugh-guest2"):(Math.random()<0.5?"sim/gasp":"sim/gasp2"),0.75,{when:0.1});
-  }
+  if(frac>0.75&&now-guest.t0>1500) guestReact(["peekaboo","naughty","peek","hop","jingle","disco","shuffle","boogie","eggs","bells","stuck","freeze"].includes(st.show)||seasonKey==="easter");
   if(guest.active&&!guest.leaveAt&&now-guest.t0>14000){ guest.xStop=guest.x; guest.leaveAt=now; guest.mood=null; }
 
   // light from the strip, in 8 blobs per side
   let avg=[0,0,0]; leds.forEach(c=>{avg[0]+=c[0];avg[1]+=c[1];avg[2]+=c[2]}); avg=avg.map(v=>v/NLED);
   const stripI=(avg[0]+avg[1]+avg[2])/(3*255);
-  const flash=S.wled[st.wled-1].fx==="lightning"&&now<boltUntil?(reduceMotion?0.3:1):0;
+  const slv=stormLevel(), sil=storm.flash&&storm.flash.sil;
+  // the Lightning Window's strip; on axe-man strikes it is dimmed and the light comes from outside
+  const flash=Math.max(S.wled[st.wled-1].fx==="lightning"&&now<boltUntil?(reduceMotion?0.3:1):0, sil?slv*0.25:slv), winFlash=Math.max(flash,sil?slv*0.6:0);
   lights=[]; emissive=[]; eyePts=[];
   for(let gI=0;gI<14;gI++){ const i0=gI*4; let c=[0,0,0]; for(let j=0;j<4;j++){ const l=leds[i0+j]; c[0]+=l[0]/4;c[1]+=l[1]/4;c[2]+=l[2]/4; } const [x,y]=ledPos(i0+1.5); const b=(c[0]+c[1]+c[2])/765; if(b>0.01) light(x,y+40,230,c.map(v=>Math.min(255,v/Math.max(b,0.2))),Math.min(1,b*1.6)); }
   const [wx,wy]=Lw(0.33,0.36); light(wx,wy+40,170,R.moon,0.22+flash*0.5);
@@ -822,10 +854,11 @@ function frame(ts){
   const sh=now<shakeUntil?(shakeUntil-now)/380*6:0;
   g.setTransform(SX,0,0,SY,(Math.random()-0.5)*sh*SX,(Math.random()-0.5)*sh*SY);
   g.fillStyle="#000"; g.fillRect(-20,-20,840,640);
-  drawRoom(); drawWindow(flash); drawDoor();
+  drawRoom(); drawWindow(winFlash); drawCurtain(slv); drawDoor();
   const eyes=eyeLevels();
   drawPortrait(Math.max(eyes[0],eyes[1]));
   drawDecor(now/1000);
+  drawScream();
   for(const p of parts){ if(p.k==="leaf"){ g.save(); g.translate(p.x,p.y); g.rotate(p.a); g.fillStyle=rgba(p.c,1); g.beginPath(); g.ellipse(0,0,8,4,0,0,7); g.fill(); g.restore(); }
     if(p.k==="fly"){ const f=Math.abs(Math.sin(now/90+p.ph)); g.fillStyle=rgba(p.c,1); g.beginPath(); g.ellipse(p.x-5*f,p.y,6*f+1,4,0,0,7); g.ellipse(p.x+5*f,p.y,6*f+1,4,0,0,7); g.fill(); } }
   // disco ball in party mode
@@ -840,6 +873,8 @@ function frame(ts){
   const candle=seasonKey==="halloween"||seasonKey==="fall"||seasonKey==="winter"?1:0.6;
   wallShadow(C.x,y,eyes,candle*(0.8+0.2*Math.sin(now/70)));
   drawChar(C.x,y,eyes);
+  drawRat(now/1000);
+  drawCauldron(now/1000);
   drawGuest();
   drawFx("room");
   // PIR
@@ -881,12 +916,248 @@ function frame(ts){
   ui(); requestAnimationFrame(frame);
 }
 
+// ============================================================ MORE PROPS ===
+// Lightning Window, Scream-o-Meter, Cauldron of Doom and Rat Express, each
+// running the same logic as its firmware (firmware/props/*), with its own
+// speaker: every prop plays one file at a time, like its own DFPlayer.
+const PROP_DATA={"lightning":{"every":10,"delay":[1000,3000],"close":1600,"gaps":{"1":[25,60],"2":[8,25],"3":[3,9]}},"screamometer":{"vu":[55,115],"trigger":100},"cauldron":{"shows":[{"id":"rise","label":"The Hand","hint":"fog, red glow, a hand rises and grabs","steps":[["WLED",2],["FOG",1],["SND",2],["WAIT",900],["MOVE",1000,1],["WAITMOVE"],["SND",3],["WIGGLE",4,160],["WAIT",1500],["MOVE",0,2],["WAITMOVE"],["FOG",0],["WLED",1]]},{"id":"peek","label":"Peekaboo","hint":"fingers creep over the rim","steps":[["WLED",2],["MOVE",450,1],["WAITMOVE"],["WIGGLE",3,90],["SND",4],["WAIT",1800],["MOVE",0,0],["WAITMOVE"],["WLED",1]]},{"id":"grab","label":"Snatch","hint":"the hand shoots out, no warning","steps":[["SND",6],["WLED",2],["MOVE",1000,0],["WAITMOVE"],["WIGGLE",2,200],["SND",3],["WAIT",1200],["MOVE",0,2],["WAITMOVE"],["WLED",1]]},{"id":"spell","label":"Toil and Trouble","hint":"the witch chants, fog pours out","steps":[["WLED",3],["FOG",1],["SND",5],["WAIT",2500],["MOVE",700,2],["WAITMOVE"],["WIGGLE",6,90],["MOVE",0,1],["WAITMOVE"],["WAIT",1500],["FOG",0],["WLED",1]]},{"id":"cackle","label":"Cackle","hint":"red flash and a witch's laugh","steps":[["WLED",2],["SND",3],["FOG",1],["WAIT",4000],["FOG",0],["WLED",1]]}],"scary":["rise","grab","spell"],"speeds":[[1714,34280],[250,5000],[643,12860]]},"rat":{"shows":[{"id":"dash","label":"Ankle Dash","hint":"straight across, squeaking","steps":[["SND",2],["MOVE",1000,0],["WAITMOVE"],["SND",1],["WAIT",1200],["MOVE",0,2],["WAITMOVE"]]},{"id":"fakeout","label":"Fake-out","hint":"peeks out, hides, then runs for it","steps":[["MOVE",180,0],["WAITMOVE"],["SND",1],["WAIT",700],["MOVE",0,0],["WAITMOVE"],["RWAIT",1200,2500],["SND",3],["MOVE",1000,0],["WAITMOVE"],["WAIT",900],["MOVE",0,2],["WAITMOVE"]]},{"id":"stalk","label":"Stalker","hint":"creeps closer, freezes, then bolts","steps":[["MOVE",350,1],["WAITMOVE"],["SND",4],["RWAIT",800,2000],["MOVE",450,1],["WAITMOVE"],["WAIT",600],["SND",2],["MOVE",1000,0],["WAITMOVE"],["WAIT",700],["MOVE",0,0],["WAITMOVE"]]},{"id":"nibble","label":"Nibbler","hint":"runs halfway and twitches at your feet","steps":[["SND",2],["MOVE",550,0],["WAITMOVE"],["WIGGLE",6,60],["SND",5],["WAIT",500],["MOVE",1000,0],["WAITMOVE"],["WAIT",800],["MOVE",0,2],["WAITMOVE"]]},{"id":"laps","label":"Rat Race","hint":"back and forth like it's lost","steps":[["SND",6],["MOVE",1000,0],["WAITMOVE"],["MOVE",300,0],["WAITMOVE"],["MOVE",850,0],["WAITMOVE"],["SND",3],["MOVE",0,0],["WAITMOVE"]]}],"scary":["dash","fakeout","nibble"],"len":6000,"speeds":[[2600,30000],[300,1500],[866,10000]]}};
+const propMp3={};
+function propKey(p,n){ return "props/"+p+"/01/"+String(n).padStart(3,"0"); }
+function preloadProps(){ if(!ac) return; for(const p of ["lightning","screamometer","cauldron","rat"]) for(let n=1;n<=6;n++){ const k=propKey(p,n); loadSample(k,["sounds/"+k+".mp3","../sd-card/"+k+".mp3"]); } }
+function propPlay(p,n,g=1,{loop=false,when=0}={}){
+  if(propMp3[p]){ try{propMp3[p].stop()}catch(e){} propMp3[p]=null; }
+  propMp3[p]=playBuf(propKey(p,n),g,{loop,when});
+  if(loop&&propMp3[p]) live=live.filter(x=>x!==propMp3[p]);   // the bubbling loop survives STOP on the spider
+  return propMp3[p];
+}
+function propStop(p){ if(propMp3[p]){ try{propMp3[p].stop()}catch(e){} propMp3[p]=null; } }
+const rint=(a,b)=>a+Math.floor(Math.random()*(b-a+1));
+
+// ---- a 1-D trapezoid axis (same maths as motion.Profile) and a show runner
+class Axis{ constructor(speeds){ this.pos=0; this.vel=0; this.target=0; this.speeds=speeds; this.vmax=speeds[0][0]; this.acc=speeds[0][1]; }
+  set(t,sp){ this.target=t; [this.vmax,this.acc]=this.speeds[sp]; }
+  moving(){ return Math.abs(this.target-this.pos)>0.5||Math.abs(this.vel)>1; }
+  step(dt){ for(let k=0;k<8;k++){ const h=dt/8, d=this.target-this.pos, dir=d>0?1:-1;
+    if(Math.abs(d)<=0.5&&Math.abs(this.vel)<=this.acc*h*2){ this.pos=this.target; this.vel=0; return; }
+    const sd=this.vel*this.vel/(2*this.acc);
+    if(this.vel!==0&&(this.vel>0)===(dir>0)&&sd>=Math.abs(d)) this.vel-=Math.sign(this.vel)*this.acc*h; else this.vel+=dir*this.acc*h;
+    this.vel=Math.max(-this.vmax,Math.min(this.vmax,this.vel)); const np=this.pos+this.vel*h;
+    if((this.target-np)*dir<=0){ this.pos=this.target; this.vel=0; } else this.pos=np; } } }
+class Runner{ constructor(rig){ this.rig=rig; this.cur=null; }
+  start(show){ this.cur=show; this.pc=0; this.wait=null; this.wig=-1; }
+  stop(){ this.cur=null; }
+  tick(){ const r=this.rig; while(this.cur){ const s=this.cur.steps[this.pc]; if(!s){ this.cur=null; r.done&&r.done(); return; }
+    const [op,a,b]=s;
+    if(op==="MOVE") r.move(r.drop*a/1000,b);
+    else if(op==="WAITMOVE"){ if(r.moving()) return; }
+    else if(op==="WAIT"||op==="RWAIT"){ if(this.wait===null) this.wait=now+(op==="WAIT"?a:rint(a,b)); if(now<this.wait) return; this.wait=null; }
+    else if(op==="SND") r.play(a);
+    else if(op==="WLED") r.wled&&r.wled(a);
+    else if(op==="FOG") r.fog&&r.fog(a);
+    else if(op==="WIGGLE"){ if(r.moving()) return;
+      if(this.wig<0){ this.base=Math.round(r.pos()); this.other=this.base+b<=r.drop?this.base+b:this.base-b; this.wig=a*2; }
+      if(this.wig>0){ r.move(this.wig%2===0?this.other:this.base,0); this.wig--; return; } this.wig=-1; }
+    this.pc++; } } }
+
+// ---- guest reactions, shared by every prop
+function guestReact(funny){
+  if(!guest.active||guest.leaveAt||now-guest.reactAt<3000||now-guest.t0<1200) return;
+  guest.reactAt=now; guest.jump=now+600;
+  const lines=funny?["haha!","awww!","so cute!","LOL","again!"]:["AAAH!","NOPE!","WHAT?!","EEEK!","MOM!"];
+  guest.said={text:lines[Math.floor(Math.random()*lines.length)],t0:now};
+  funny?score.laughed++:score.scared++;
+  guest.mood=funny?"laugh":"scared"; guest.xStop=guest.x; guest.leaveAt=now+(funny?3200:2200);
+  playBuf(funny?(Math.random()<0.5?"sim/laugh-guest":"sim/laugh-guest2"):(Math.random()<0.5?"sim/gasp":"sim/gasp2"),0.75,{when:0.1});
+}
+
+// ---------------------------------------------------------------- Lightning Window
+const storm={count:0,every:PROP_DATA.lightning.every,auto:false,level:2,armed:false,flash:null,thunder:null,nextAuto:0,last:null,lastPir:-1e9};
+function flashPattern(){ const out=[]; let t=0; for(let i=rint(1,3);i>0;i--){ const on=rint(20,50); out.push([t,on,rint(15,45)/100]); t+=on+rint(30,110); }
+  const m=rint(70,130); out.push([t,m,1]); t+=m; let lv=0.85; for(let i=rint(1,3);i>0;i--){ t+=rint(40,140); const on=rint(30,80); out.push([t,on,lv]); t+=on; lv*=0.6; } return out; }
+function strike(close=false,sil=null){
+  storm.count++; if(sil===null) sil=storm.every>0&&storm.count%storm.every===0;
+  const [lo,hi]=PROP_DATA.lightning.delay, delay=close||sil?rint(lo,lo+(hi-lo)/4|0):rint(lo,hi), near=delay<PROP_DATA.lightning.close;
+  const track=(near?[1,2,3]:[4,5,6])[rint(0,2)], gain=1-(delay-lo)/(hi-lo)*0.55;
+  storm.flash={t0:now,p:flashPattern(),c:Math.random(),sil}; storm.thunder={due:now+delay,track,gain};
+  storm.last={n:storm.count,delay,near,sil};
+  bolt=[]; let bu=0.2+Math.random()*0.25, bv=0.2; while(bv<0.5){ bolt.push([bu,bv]); bu+=(Math.random()-0.5)*0.05; bv+=0.02+Math.random()*0.04; } bolt.push([bu,0.5]);
+}
+function stormLevel(){ const f=storm.flash; if(!f) return 0; const t=now-f.t0; let lv=0; for(const [s,l,v] of f.p) if(t>=s&&t<s+l) lv=v;
+  const end=f.p[f.p.length-1][0]+f.p[f.p.length-1][1]; if(t>=end+150){ storm.flash=null; return 0; } if(t>=end) lv=0.25*(1-(t-end)/150);
+  return reduceMotion?Math.min(lv,0.35):lv; }
+function stormTick(){
+  if(storm.thunder&&now>=storm.thunder.due){ propPlay("lightning",storm.thunder.track,storm.thunder.gain); storm.thunder=null; }
+  const busy=storm.flash||storm.thunder;
+  if(storm.auto&&!busy&&now>=storm.nextAuto){ if(storm.nextAuto) strike(); const [lo,hi]=PROP_DATA.lightning.gaps[storm.level]; storm.nextAuto=now+rint(lo,hi)*1000; }
+  if(storm.armed&&!busy&&guest.active&&now-guest.t0<800&&now-storm.lastPir>15000){ storm.lastPir=now; strike(true); }
+}
+// the sheer curtain: glows when the strip behind it flashes; on axe-man strikes
+// the light comes from outside instead and his shadow falls on the fabric
+function drawCurtain(lv){
+  const f=storm.flash, sil=f&&f.sil;
+  const q=quad(Lw,0.155,0.495,0.17,0.57);
+  g.save(); poly(q); g.clip();
+  const glow=sil?0:lv;
+  const back=sil?lv:0;
+  g.fillStyle=`rgba(${215+40*glow|0},${215+40*glow|0},${235+20*glow|0},${0.16+0.6*Math.max(glow,back)})`; g.fillRect(0,0,420,600);
+  if(back>0.05){ // axe man, lit from behind
+    const [hx,hy]=Lw(0.33,0.27), s=1.15; g.fillStyle=`rgba(6,4,10,${Math.min(1,back*1.4)})`;
+    g.beginPath(); g.arc(hx,hy,9*s,0,7); g.fill();
+    g.beginPath(); g.moveTo(hx-14*s,hy+10*s); g.lineTo(hx+14*s,hy+10*s); g.lineTo(hx+11*s,hy+70*s); g.lineTo(hx-11*s,hy+70*s); g.fill();
+    g.lineWidth=7*s; g.lineCap="round"; g.strokeStyle=g.fillStyle; g.beginPath(); g.moveTo(hx+12*s,hy+14*s); g.lineTo(hx+26*s,hy-12*s); g.moveTo(hx-12*s,hy+14*s); g.lineTo(hx+20*s,hy-16*s); g.stroke();
+    g.lineWidth=4*s; g.beginPath(); g.moveTo(hx+24*s,hy-14*s); g.lineTo(hx+40*s,hy-56*s); g.stroke();
+    g.beginPath(); g.moveTo(hx+36*s,hy-50*s); g.quadraticCurveTo(hx+58*s,hy-62*s,hx+54*s,hy-38*s); g.lineTo(hx+42*s,hy-44*s); g.fill();
+  }
+  // folds
+  for(let u=0.165;u<0.49;u+=0.028){ const a=Lw(u,0.17), b=Lw(u+0.008*Math.sin(u*90),0.57); g.strokeStyle=`rgba(255,255,255,${0.07+0.12*Math.max(glow,back)})`; g.lineWidth=5; g.beginPath(); g.moveTo(a[0],a[1]); g.lineTo(b[0],b[1]); g.stroke(); }
+  g.restore();
+  const r1=Lw(0.14,0.165), r2=Lw(0.51,0.165); g.strokeStyle="#5a4632"; g.lineWidth=3; g.beginPath(); g.moveTo(r1[0],r1[1]); g.lineTo(r2[0],r2[1]); g.stroke();
+}
+
+// ---------------------------------------------------------------- Scream-o-Meter
+const FONT5={" ":[0,0,0],"!":[0x5f],"?":[2,1,0x51,9,6],"-":[8,8,8],"0":[0x3e,0x51,0x49,0x45,0x3e],"1":[0,0x42,0x7f,0x40,0],"2":[0x42,0x61,0x51,0x49,0x46],"3":[0x21,0x41,0x45,0x4b,0x31],"4":[0x18,0x14,0x12,0x7f,0x10],"5":[0x27,0x45,0x45,0x45,0x39],"6":[0x3c,0x4a,0x49,0x49,0x30],"7":[1,0x71,9,5,3],"8":[0x36,0x49,0x49,0x49,0x36],"9":[6,0x49,0x49,0x29,0x1e],
+ A:[0x7e,0x11,0x11,0x11,0x7e],B:[0x7f,0x49,0x49,0x49,0x36],C:[0x3e,0x41,0x41,0x41,0x22],D:[0x7f,0x41,0x41,0x22,0x1c],E:[0x7f,0x49,0x49,0x49,0x41],M:[0x7f,2,4,2,0x7f],R:[0x7f,9,0x19,0x29,0x46],S:[0x46,0x49,0x49,0x49,0x31],T:[1,1,0x7f,1,1]};
+function render5(txt){ const c=[]; for(const ch of txt.toUpperCase()){ (FONT5[ch]||FONT5["?"]).forEach(v=>c.push(v)); c.push(0); } c.pop(); return c; }
+const scream={phase:"idle",t0:0,db:0,peak:0,peakT:0,score:0,who:"",record:false,board:[],guests:0,mic:null,an:null,buf:null,lastTrig:-1e9,sim:null,text:"",scroll:0};
+try{ scream.board=JSON.parse(localStorage.getItem("sh-board")||"[]") }catch(e){}
+const VU=PROP_DATA.screamometer.vu;
+function screamStart(){ if(scream.phase==="countdown"||scream.phase==="listen") return; scream.guests++; scream.who=($("sname").value||"Guest "+scream.guests).slice(0,12);
+  scream.phase="countdown"; scream.t0=now; scream.peak=0; scream.record=false; propPlay("screamometer",1); }
+async function useMic(){
+  try{ audioInit(); ac.resume(); const s=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}});
+    const src=ac.createMediaStreamSource(s), an=ac.createAnalyser(); an.fftSize=1024; src.connect(an); scream.an=an; scream.buf=new Float32Array(an.fftSize);
+    $("mic").textContent="Microphone on"; $("mic").setAttribute("aria-pressed","true");
+  }catch(e){ $("mic").textContent="No microphone here, pretend screams instead"; $("mic").disabled=true; }
+}
+function micDb(){
+  if(scream.an){ scream.an.getFloatTimeDomainData(scream.buf); let s=0; for(const v of scream.buf) s+=v*v; const r=Math.sqrt(s/scream.buf.length); return r<1e-6?0:Math.max(0,20*Math.log10(r)+110); }
+  // no mic: room murmur, and a simulated scream from the guest during a round
+  let db=52+Math.random()*6;
+  if(scream.phase==="listen"){ if(!scream.sim){ scream.sim={peak:rint(84,114),at:rint(300,1500)}; playBuf(slotKey(2),0.5); }
+    const t=now-scream.t0-scream.sim.at; db=Math.max(db,scream.sim.peak-Math.abs(t)/45+Math.random()*2); }
+  return db;
+}
+function screamTick(){
+  const db=micDb();
+  scream.db=db>scream.db?db:scream.db*0.8+db*0.2;
+  if(scream.phase==="listen") scream.peak=Math.max(scream.peak,db); else if(db>=scream.peak||now-scream.peakT>1500){ scream.peak=db; scream.peakT=now; }
+  const t=now-scream.t0;
+  if(scream.phase==="countdown"){ scream.text=String(Math.max(1,Math.ceil((3000-t)/1000))); if(t>=3000){ scream.phase="listen"; scream.t0=now; scream.peak=0; scream.sim=null; scream.text="SCREAM!"; } }
+  else if(scream.phase==="listen"){ if(t>=3000){ scream.score=Math.round(scream.peak); scream.phase="result"; scream.t0=now;
+      const best=scream.board.length?scream.board[0].db:0; scream.record=scream.score>best;
+      scream.board.push({name:scream.who,db:scream.score}); scream.board.sort((a,b)=>b.db-a.db); scream.board.length=Math.min(10,scream.board.length);
+      try{ localStorage.setItem("sh-board",JSON.stringify(scream.board)) }catch(e){}
+      propPlay("screamometer",scream.record?2:scream.score<85?3:scream.score<100?4:5); scream.text=scream.score+" DB"; } }
+  else if(scream.phase==="result"){ if(t>=8000) scream.phase="idle"; }
+  else { const best=scream.board.length?scream.board[0].db:0; scream.text=scream.db>=VU[0]+8?String(Math.round(scream.db)):(best?"BEST "+best:"SCREAM?"); }
+  if(db>=PROP_DATA.screamometer.trigger&&now-scream.lastTrig>20000&&(scream.phase==="listen"||scream.an)){ scream.lastTrig=now;
+    if(!st.show) startShow(S.scary[Math.floor(Math.random()*S.scary.length)]); if(!cauldron.run.cur) cauldron.run.start(PROP_DATA.cauldron.shows.find(s=>s.id==="cackle")); }
+}
+function drawScream(){
+  const n=20, frac=v=>Math.max(0,Math.min(1,(v-VU[0])/(VU[1]-VU[0])));
+  const lit=frac(scream.db)*n, pk=Math.round(frac(scream.peak)*(n-1)), fl=scream.phase==="result"&&scream.record&&Math.floor((now-scream.t0)/150)%2;
+  const [bx0,by0]=Lw(0.6,0.65), [bx1,by1]=Lw(0.6,0.26);
+  g.fillStyle="#0d0a12"; const [p0,p1]=[Lw(0.585,0.67),Lw(0.615,0.24)]; g.beginPath(); g.moveTo(p0[0],p0[1]); g.lineTo(p0[0]+12,p0[1]+1); g.lineTo(p1[0]+12,p1[1]+1); g.lineTo(p1[0],p1[1]); g.fill();
+  for(let i=0;i<n;i++){ const k=i/(n-1), x=lerp(bx0,bx1,k)+6, y=lerp(by0,by1,k), col=[k<0.5?510*k:255,k<0.5?255:510*(1-k),0];
+    if(fl) emit(x,y,2.6,[255,255,255],1); else if(i<lit) { emit(x,y,2.6,col,1); if(i===Math.floor(lit)-1) light(x,y,90,col,0.25); } else if(i===pk&&scream.peak>=VU[0]) emit(x,y,2.6,[255,255,255],0.9); else { g.fillStyle=rgba(col.map(v=>v*0.18),1); g.fillRect(x-2,y-2,4,4); } }
+  // the dot matrix above it
+  const cols=render5(scream.text||""), W=32; let off=0;
+  if(cols.length>W){ off=Math.floor(now/70)%(cols.length+W)-W; } else off=-Math.floor((W-cols.length)/2);
+  const m0=Lw(0.53,0.155), m1=Lw(0.67,0.155); g.fillStyle="#06050a"; g.beginPath(); const mb=Lw(0.67,0.215), ma=Lw(0.53,0.215); g.moveTo(m0[0],m0[1]); g.lineTo(m1[0],m1[1]); g.lineTo(mb[0],mb[1]); g.lineTo(ma[0],ma[1]); g.fill();
+  for(let x=0;x<W;x++){ const c=cols[x+off]||0; for(let r=0;r<7;r++){ const [px,py]=Lw(0.535+0.13*x/(W-1),0.163+0.046*r/6); if(c>>r&1) emit(px,py,0.9,[255,40,30],0.9); } }
+}
+
+// ---------------------------------------------------------------- Cauldron of Doom
+const CX=330, CY=568;
+const cauldron={armed:true,fogMode:"cycle",boost:false,light:1,hand:new Axis(PROP_DATA.cauldron.speeds),lastPir:-1e9,bubbling:true,mist:0};
+cauldron.run=new Runner({drop:1000,move:(t,sp)=>cauldron.hand.set(Math.max(0,Math.min(1000,t)),sp),moving:()=>cauldron.hand.moving(),pos:()=>cauldron.hand.pos,
+  play:n=>propPlay("cauldron",n),wled:s=>cauldron.light=s,fog:on=>cauldron.boost=!!on,done:()=>{ cauldron.light=1; cauldron.boost=false; cauldronIdle(); }});
+function cauldronIdle(){ if(soundOn&&cauldron.bubbling) propPlay("cauldron",1,0.45,{loop:true}); }
+function cauldronTick(dt){
+  cauldron.run.tick(); cauldron.hand.step(dt);
+  if(soundOn&&cauldron.bubbling&&!cauldron.run.cur&&!propMp3.cauldron) cauldronIdle();   // waits for the MP3 to load
+  const cyc=(now%60000)<20000;
+  const fogOn=cauldron.boost||cauldron.fogMode==="on"||(cauldron.fogMode==="cycle"&&cyc);
+  cauldron.mist=lerp(cauldron.mist,fogOn?1:0,dt*0.8);
+  if(fx.filter(p=>p.kind==="cfog").length<(cauldron.boost?40:22)&&Math.random()<cauldron.mist*dt*(cauldron.boost?14:5)) fx.push({kind:"cfog",x:CX+(Math.random()-0.5)*50,y:CY-30,vx:(Math.random()-0.5)*30,vy:-6-Math.random()*8,life:1,decay:0.22+Math.random()*0.15,r:14+Math.random()*10,rot:0,c:cauldron.light===2?[255,120,120]:[170,255,180]});
+  if(cauldron.armed&&!cauldron.run.cur&&guest.active&&!guest.leaveAt&&now-guest.t0>3400&&now-cauldron.lastPir>20000){ cauldron.lastPir=now; const sc=PROP_DATA.cauldron.scary; cauldron.run.start(PROP_DATA.cauldron.shows.find(s=>s.id===sc[rint(0,sc.length-1)])); }
+  if(cauldron.run.cur&&cauldron.hand.pos>900) guestReact(false);
+}
+function cauldronColor(){ return cauldron.light===2?[255,30,30]:cauldron.light===3?(Math.random()<0.5?[240,240,255]:[120,255,140]):cauldron.light===4?[0,0,0]:[60,255,90]; }
+function drawCauldron(t){
+  const col=cauldronColor(), fl=0.75+0.25*Math.sin(t*7)*Math.sin(t*3.1);
+  if(cauldron.light!==4){ light(CX,CY-30,190,col,0.5*fl); light(CX,CY-8,60,col,0.6*fl); }
+  // the hand, behind the front rim
+  const k=cauldron.hand.pos/1000, hy=CY-28-k*70, wob=cauldron.run.cur?Math.sin(t*9)*3:0;
+  if(k>0.03){ g.fillStyle="#6f8f5a"; g.strokeStyle="#3d5530"; g.lineWidth=1.5;
+    g.beginPath(); g.moveTo(CX-6+wob,CY-24); g.lineTo(CX-5+wob,hy+16); g.lineTo(CX+5+wob,hy+16); g.lineTo(CX+6+wob,CY-24); g.fill();
+    g.beginPath(); g.ellipse(CX+wob,hy+10,10,9,0,0,7); g.fill(); g.stroke();
+    const curl=cauldron.run.cur&&cauldron.run.wig>=0?0.5+0.5*Math.sin(t*14):0;
+    for(let i=0;i<4;i++){ const fx0=CX-7.5+i*5+wob, len=12+(i===1||i===2?3:0); g.lineWidth=3.2; g.strokeStyle="#6f8f5a"; g.beginPath(); g.moveTo(fx0,hy+4); g.lineTo(fx0+(i-1.5)*1.5,hy+4-len*(1-0.5*curl)); g.stroke(); }
+    g.lineWidth=3; g.beginPath(); g.moveTo(CX+9+wob,hy+12); g.lineTo(CX+16+wob,hy+4); g.stroke(); }
+  // pot
+  const pg=g.createLinearGradient(CX-46,0,CX+46,0); pg.addColorStop(0,"#0b0a0d"); pg.addColorStop(0.35,"#3a3442"); pg.addColorStop(1,"#0b0a0d"); g.fillStyle=pg; g.beginPath(); g.ellipse(CX,CY,46,30,0,0,Math.PI); g.lineTo(CX-46,CY-22); g.ellipse(CX,CY-22,46,9,0,Math.PI,0,true); g.closePath(); g.fill();
+  g.fillStyle=rgba(col.map(v=>v*0.5),0.9); g.beginPath(); g.ellipse(CX,CY-22,40,7,0,0,7); g.fill();
+  for(let i=0;i<5;i++){ const bx=CX-30+((i*23+t*40)%60), s=Math.abs(Math.sin(t*3+i*2)); g.fillStyle=rgba(col,0.6*s); g.beginPath(); g.arc(bx,CY-22-s*2,2+s*2.5,0,7); g.fill(); }
+  g.strokeStyle="#4a4452"; g.lineWidth=5; g.beginPath(); g.ellipse(CX,CY-22,46,9,0,0,7); g.stroke(); emit(CX-20,CY-27,2,col,0.5); emit(CX+22,CY-27,2,col,0.5);
+  g.fillStyle="#0c0a0e"; g.fillRect(CX-38,CY+18,8,12); g.fillRect(CX+30,CY+18,8,12);
+}
+
+// ---------------------------------------------------------------- Rat Express
+const rat={armed:true,ax:new Axis(PROP_DATA.rat.speeds),lastPir:-1e9,len:PROP_DATA.rat.len,passed:false};
+rat.run=new Runner({drop:rat.len,move:(t,sp)=>rat.ax.set(Math.max(0,Math.min(rat.len,t)),sp),moving:()=>rat.ax.moving(),pos:()=>rat.ax.pos,play:n=>propPlay("rat",n)});
+function ratTick(dt){
+  rat.run.tick(); rat.ax.step(dt);
+  if(rat.armed&&!rat.run.cur&&guest.active&&!guest.leaveAt&&now-guest.t0>600&&now-guest.t0<1200&&now-rat.lastPir>12000){ rat.lastPir=now; const sc=PROP_DATA.rat.scary; rat.run.start(PROP_DATA.rat.shows.find(s=>s.id===sc[rint(0,sc.length-1)])); }
+  const [x]=ratXY(); if(guest.active&&Math.abs(x-guest.x)<30&&Math.abs(rat.ax.vel)>800) guestReact(false);
+}
+function ratXY(){ const u=lerp(0.965,0.14,rat.ax.pos/rat.len); return Rw(u,0.995); }
+function drawRat(t){
+  const [hx,hy]=Rw(0.975,0.99); g.fillStyle="#050407"; g.beginPath(); g.ellipse(hx,hy-4,10,7,0,Math.PI,0); g.fill();
+  if(rat.ax.pos<40) return;
+  const [x,y]=ratXY(), dir=rat.ax.vel<-1?1:-1, sc=lerp(1.25,1.6,(x-400)/400), run=Math.min(1,Math.abs(rat.ax.vel)/1500), bob=Math.abs(Math.sin(t*40))*2*run;
+  g.save(); g.translate(x,y-5-bob); g.scale(dir*sc,sc); g.rotate(0.21*dir);
+  g.strokeStyle="#c59a9a"; g.lineWidth=1.6; g.beginPath(); g.moveTo(9,1); g.quadraticCurveTo(20,6+Math.sin(t*20)*3,30,0); g.stroke();
+  g.fillStyle="#5d5560"; g.beginPath(); g.ellipse(0,0,11,6,0,0,7); g.fill();
+  g.beginPath(); g.moveTo(-8,-4); g.lineTo(-19,1); g.lineTo(-8,4); g.fill();
+  g.fillStyle="#d8a5a8"; g.beginPath(); g.arc(-6,-5,2.6,0,7); g.fill(); g.fillStyle="#f2b6b9"; g.beginPath(); g.arc(-19,1,1.3,0,7); g.fill();
+  g.restore();
+  emit(x-15*dir*sc,y-6-bob,1.1,[255,40,40],0.8);   // eye, at the head end
+}
+
+// ---------------------------------------------------------------- panel
+function propsUI(){
+  const s=storm;
+  $("stst").textContent=(s.flash?"STRIKE!":s.thunder?"thunder coming...":(s.auto?"storm brewing":"calm"))+" · "+s.count+" strikes · axe man "+(s.every?(s.every-s.count%s.every===s.every&&s.count?"just now":"in "+(s.every-s.count%s.every)):"off");
+  $("stauto").setAttribute("aria-pressed",s.auto); $("starm").setAttribute("aria-pressed",s.armed);
+  $("scst").textContent=scream.phase==="countdown"?"get ready: "+scream.text:scream.phase==="listen"?"SCREAM NOW! "+Math.round(scream.peak)+" dB":scream.phase==="result"?scream.who+": "+scream.score+" dB"+(scream.record?" NEW RECORD!":""):"listening · "+Math.round(scream.db)+" dB";
+  $("board").innerHTML=scream.board.slice(0,5).map(e=>"<li>"+e.name.replace(/[<&]/g,"")+" <b>"+e.db+"</b></li>").join("")||"<li>nobody yet</li>";
+  $("cast").textContent=(cauldron.run.cur?"PLAYING: "+cauldron.run.cur.label:"bubbling away")+" · fog "+(cauldron.mist>0.5?"on":"off");
+  $("caarm").setAttribute("aria-pressed",cauldron.armed);
+  $("rast").textContent=rat.run.cur?"RUNNING: "+rat.run.cur.label:(rat.ax.pos<1?"hiding in its hole":"heading home");
+  $("raarm").setAttribute("aria-pressed",rat.armed);
+  document.querySelectorAll("[data-cshow]").forEach(b=>b.classList.toggle("on",!!cauldron.run.cur&&cauldron.run.cur.id===b.dataset.cshow));
+  document.querySelectorAll("[data-rshow]").forEach(b=>b.classList.toggle("on",!!rat.run.cur&&rat.run.cur.id===b.dataset.rshow));
+}
+function buildPropsUI(){
+  const add=(id,label,fn,attr)=>{ const b=document.createElement("button"); b.innerHTML=label; b.onclick=()=>{wake(); fn()}; if(attr) b.setAttribute(attr[0],attr[1]); $(id).appendChild(b); return b; };
+  add("stb","&#9889; Lightning!",()=>strike()); add("stb","Close strike",()=>strike(true)); add("stb","Axe man now",()=>strike(true,true));
+  $("stauto").onclick=()=>{ storm.auto=!storm.auto; storm.nextAuto=now+1500; }; $("starm").onclick=()=>{ storm.armed=!storm.armed; };
+  $("stlvl").onchange=e=>{ storm.level=+e.target.value; };
+  $("scgo").onclick=()=>{ wake(); screamStart(); }; $("mic").onclick=useMic;
+  $("scclear").onclick=()=>{ scream.board=[]; try{localStorage.removeItem("sh-board")}catch(e){} };
+  PROP_DATA.cauldron.shows.forEach(sh=>add("cab",sh.label,()=>cauldron.run.start(sh),["data-cshow",sh.id]));
+  $("cafog").onchange=e=>{ cauldron.fogMode=e.target.value; }; $("caarm").onclick=()=>{ cauldron.armed=!cauldron.armed; };
+  PROP_DATA.rat.shows.forEach(sh=>add("rab",sh.label,()=>{ if(!rat.run.cur) rat.run.start(sh); },["data-rshow",sh.id]));
+  $("raarm").onclick=()=>{ rat.armed=!rat.armed; };
+}
+
 // ================================================================== UI ===
 const $=id=>document.getElementById(id);
 function buildSeasonUI(){
   S=SEASONS[seasonKey]; R=ROOM[seasonKey];
   document.documentElement.style.setProperty("--accent",S.accent); document.documentElement.style.setProperty("--accent-ink",S.ink);
-  stopAll(); st.pos=0; st.target=0; st.wled=1; confetti=[]; fx=[]; initParticles(); setVerb(); preloadSeason(); startAmbient();
+  stopAll(); st.pos=0; st.target=0; st.wled=1; storm.auto=seasonKey==="halloween"||seasonKey==="fall"; storm.nextAuto=now+4000; confetti=[]; fx=[]; initParticles(); setVerb(); preloadSeason(); startAmbient();
   $("who").innerHTML=S.char+"<small>"+S.label+"</small>";
   $("ptitle").textContent=S.char.toUpperCase(); document.querySelector(".url").textContent="http://"+S.host;
   $("shows").innerHTML=""; Object.entries(S.shows).forEach(([id,[label,hint]])=>{ const b=document.createElement("button"); b.className="show"; b.dataset.id=id; b.innerHTML=label+"<small>"+hint+"</small>"; b.onclick=()=>{wake(); startShow(id)}; $("shows").appendChild(b); });
@@ -906,6 +1177,7 @@ function ui(){
   $("pos").textContent=`Position ${Math.round(st.pos)} / ${st.drop} steps`;
   $("barI").style.width=Math.min(100,100*st.pos/st.drop)+"%";
   $("score").innerHTML=`Scared <b>${score.scared}</b> · Laughed <b>${score.laughed}</b>`;
+  propsUI();
   $("nowplaying").textContent="♪ "+(now-nowPlayingAt<4000?nowPlaying:(soundOn?"room tone":"sound off"));
 }
 function wake(){ if(soundOn&&ac&&ac.state==="suspended") ac.resume(); }
@@ -919,9 +1191,9 @@ $("party").onclick=()=>{st.party=!st.party; st.nextParty=now+5000};
 $("eyes").onchange=e=>{st.eyes=e.target.value};
 $("vol").oninput=e=>{st.vol=+e.target.value; setVol()};
 $("guest").onclick=()=>{ wake(); sendGuest(); };
-$("snd").onclick=()=>{ soundOn=!soundOn; if(soundOn){ audioInit(); ac.resume(); preloadSeason(); startAmbient(); } else { stopAudio(); stopAmbient(); } $("snd").setAttribute("aria-pressed",soundOn); $("snd").textContent=soundOn?"Sound on":"Sound off"; };
+$("snd").onclick=()=>{ soundOn=!soundOn; if(soundOn){ audioInit(); ac.resume(); preloadSeason(); startAmbient(); } else { stopAudio(); stopAmbient(); ["lightning","screamometer","cauldron","rat"].forEach(propStop); } $("snd").setAttribute("aria-pressed",soundOn); $("snd").textContent=soundOn?"Sound on":"Sound off"; };
 try{ const k=localStorage.getItem("sh-season"); if(k&&SEASONS[k]) seasonKey=k; }catch(e){}
-fitCanvas(); buildSeasonUI(); addEventListener("resize",fitCanvas);
+buildPropsUI(); fitCanvas(); buildSeasonUI(); addEventListener("resize",fitCanvas);
 setTimeout(()=>startShow(Object.keys(S.shows)[0]),900);
 requestAnimationFrame(frame);
 </script>

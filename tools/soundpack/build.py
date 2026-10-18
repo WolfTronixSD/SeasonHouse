@@ -613,6 +613,132 @@ def extras():
     return E
 
 
+# ---------------------------------------------------------------- the other props
+def thunder_roll(sec, rolls, crack=0.0, bright=900):
+    """Rolling thunder: low noise shaped by a handful of decaying 'rolls',
+    optionally led by a sharp crack (close strikes)."""
+    base = lowpass(noise(sec), bright) * 2.5 + lowpass(noise(sec), 120) * 3
+    tt = t(sec)
+    env = np.zeros_like(tt)
+    for i in range(rolls):
+        st = (i / rolls) * sec * 0.55 + RNG.uniform(0, 0.4)
+        a = RNG.uniform(0.4, 1.0) * (1 - 0.5 * i / rolls)
+        env += a * np.clip((tt - st) / 0.15, 0, 1) * np.exp(-np.clip(tt - st, 0, None) * RNG.uniform(0.8, 1.6))
+    out = base * env
+    parts = [(out, 0, 1.0), (cut(lowpass(sp("misc_cineboom"), 500), min(sec, 7)), 0.05, 0.5 + crack * 0.3)]
+    if crack:
+        crk = highpass(noise(0.08), 1500) * np.exp(-t(0.08) * 45) * 4
+        rip = silence(0.6)
+        for _ in range(60):                       # the tearing sound of a close bolt
+            i = int(abs(RNG.normal(0.12, 0.12)) * SR)
+            b = highpass(noise(0.004), 2500) * RNG.uniform(0.3, 1.5)
+            if i + len(b) < len(rip):
+                rip[i:i + len(b)] += b
+        parts += [(crk, 0, crack), (rip, 0.0, crack * 0.8)]
+    return reverb(fade(mix(*parts), 0.002, 1.0), 2.5, 0.35)
+
+
+def bubbles(sec, rate=7, big=1.0):
+    """Cauldron bubbles: each pop is a short rising tone (that's how real
+    bubbles sound), plus a low gurgle underneath."""
+    out = silence(sec)
+    n = int(sec * rate)
+    for _ in range(n):
+        d = RNG.uniform(0.04, 0.12) * big
+        st = RNG.uniform(0, sec - d - 0.01)
+        f0 = RNG.uniform(250, 900) / big
+        tt = t(d)
+        f = f0 * (1 + tt / d * RNG.uniform(0.6, 1.4))
+        ph = 2 * np.pi * np.cumsum(f) / SR
+        pop = np.sin(ph) * np.exp(-tt / d * 4) * np.sin(np.pi * np.minimum(1, tt / 0.004))
+        i = int(st * SR)
+        out[i:i + len(pop)] += pop * RNG.uniform(0.3, 1.0)
+    gurgle = lowpass(noise(sec), 180) * (0.6 + 0.4 * np.sin(2 * np.pi * 0.7 * t(sec))) * 1.5
+    return mix((out, 0, 1.6), (gurgle, 0, 0.2 * big))
+
+
+def seamless(x, xf=1.0):
+    """Crossfade the end into the start so the DFPlayer can loop it."""
+    k = int(xf * SR)
+    ramp = np.linspace(0, 1, k, dtype=np.float32)
+    head = x[:k] * ramp + x[-k:] * (1 - ramp)
+    return np.concatenate([head, x[k:-k]])
+
+
+def squeak(f=4200, d=0.09, bend=0.25):
+    tt = t(d)
+    ff = f * (1 + bend * np.sin(np.pi * tt / d)) * (1 + 0.03 * np.sin(2 * np.pi * 60 * tt))
+    ph = 2 * np.pi * np.cumsum(ff) / SR
+    y = (np.sin(ph) + 0.25 * np.sin(2 * ph)) * np.sin(np.pi * tt / d) ** 0.7
+    return y.astype(np.float32)
+
+
+def squeaks(n=3, gap=0.13):
+    return mix(*[(squeak(RNG.uniform(3600, 5200), RNG.uniform(0.05, 0.12), RNG.uniform(0.1, 0.4)), i * gap + RNG.uniform(0, 0.03), RNG.uniform(0.6, 1)) for i in range(n)])
+
+
+def claws(sec=2.0, rate=28):
+    out = silence(sec)
+    tick = highpass(sp("elec_tick"), 2500)
+    i = 0.0
+    while i < sec - 0.05:
+        j = int(i * SR)
+        k = tick * RNG.uniform(0.2, 1)
+        out[j:j + len(k)] += k[: len(out) - j]
+        i += 1 / rate * RNG.uniform(0.5, 1.5)
+    return bandpass(out, 4000, 2)
+
+
+def props_pack():
+    global RNG
+    RNG = np.random.default_rng(11)          # props sound the same however the build is run
+    wet = lambda x, s=1.2, w=0.3: reverb(x, s, w)
+    announcer = lambda txt, sp_=1.0: wet(say(txt, "am_michael", sp_), 0.8, 0.15)
+    crone = lambda txt, sp_=0.85: wet(ffmpeg_filter(pitch(say(txt, "bf_alice", sp_), -3), "vibrato=f=6:d=0.15"), 1.6, 0.3)
+    cackle_ph = "hˈɛ hˈɛ hˈɛ hˈɛ hˈɛ hˈɛːː!"
+    P = {}
+    P["lightning"] = {
+        1: thunder_roll(6.0, 4, crack=1.0, bright=1400),
+        2: thunder_roll(5.5, 3, crack=0.9, bright=1200),
+        3: thunder_roll(7.0, 5, crack=1.1, bright=1600),
+        4: thunder_roll(8.0, 6, bright=500),
+        5: thunder_roll(7.0, 5, bright=420),
+        6: thunder_roll(9.0, 7, bright=360),
+    }
+    count = mix((announcer("Three!"), 0.0, 1), (announcer("Two!"), 1.0, 1), (announcer("One!"), 2.0, 1),
+                (announcer("SCREAM!", 0.9), 2.95, 1.2),
+                *[(lowpass(sp("drum_heavy_kick"), 300), b, 0.8) for b in (0, 1, 2)],
+                (cut(sp("drum_cymbal_hard"), 1.5), 2.95, 0.5))
+    fanfare = mix(*[(bell(midi(n), 1.6), i * 0.13, 0.7) for i, n in enumerate((72, 76, 79, 84))],
+                  (bell(midi(88), 2.5), 0.55, 0.9), (announcer("New high score!", 0.95), 0.9, 1.1))
+    P["screamometer"] = {
+        1: count,
+        2: fanfare,
+        3: announcer("Is that all you've got? My grandma screams louder than that!"),
+        4: announcer("Not bad. Not bad at all!"),
+        5: mix((announcer("Whoa! My ears! My poor ears!", 1.05), 0, 1), (cut(sp("drum_cymbal_hard"), 1.2), 0, 0.4)),
+        6: wet(pitch(say("Uh oh. You woke something up...", "bm_george", 0.85), -3), 2.0, 0.4),
+    }
+    P["cauldron"] = {
+        1: seamless(bubbles(13.0, 11)),
+        2: mix((crone("Who disturbs my stew?"), 0.2, 1), (cut(lowpass(chip(fd("dsdmact"), -6), 900), 2.0), 0, 0.5)),
+        3: wet(ffmpeg_filter(chip(say(cackle_ph, "af_bella", 1.0, ph=True), 2), "vibrato=f=7:d=0.3"), 1.6, 0.35),
+        4: crone("Mmm. You'll make a lovely soup!"),
+        5: crone("Double, double, toil and trouble. Fire burn, and cauldron bubble!", 0.8),
+        6: mix((bubbles(3.0, 14, big=2.2), 0, 1), (cut(lowpass(sp("misc_cineboom"), 700), 2.5), 0, 0.5)),
+    }
+    P["rat"] = {
+        1: squeaks(3),
+        2: mix((claws(2.2), 0, 1), (squeaks(2, 0.5), 0.8, 0.5)),
+        3: mix((chip(say("ˈiːːːːk!", "af_jessica", 0.8, ph=True), 12), 0, 1), (squeaks(4, 0.08), 0.1, 0.6)),
+        4: mix((bandpass(noise(0.9), 5000, 1.5) * np.sin(np.pi * t(0.9) / 0.9) ** 0.5, 0, 0.8), (squeak(3000, 0.15, -0.3), 0.85, 0.7)),
+        5: chip(say("Eek! Eek!", "am_puck", 1.1), 10),
+        6: mix(*[(squeaks(3, 0.11), RNG.uniform(0, 4), RNG.uniform(0.3, 0.9)) for _ in range(14)],
+               (claws(5.0, 60), 0, 1), length=5 * SR),
+    }
+    return P
+
+
 def normalise(x, target_rms_db=-16.0, peak=0.89):
     x = trim(x.astype(np.float64))
     rms = np.sqrt(np.mean(x ** 2)) + 1e-9
@@ -635,9 +761,9 @@ def main():
     ap.add_argument("--sonicpi", required=True, help="sonic-pi/etc/samples")
     ap.add_argument("--freedoom", required=True, help="freedoom/sounds")
     ap.add_argument("--kokoro", required=True, help="folder with kokoro-v1.0.onnx and voices-v1.0.bin")
-    ap.add_argument("--only", help="e.g. 01 or 01/7 or extras")
+    ap.add_argument("--only", help="e.g. 01 or 01/7 or extras or props")
     A = ap.parse_args()
-    if not A.only or not A.only.startswith("extras"):
+    if not A.only or A.only not in ("extras", "props"):
         for folder, slots in pack().items():
             for slot, sig in slots.items():
                 key = "%s/%d" % (folder, slot)
@@ -651,6 +777,14 @@ def main():
             write_mp3(normalise(sig, -20 if name.startswith("amb") else -16),
                       os.path.join(ROOT, "simulator", "sounds", "sim", name + ".mp3"), lead=0.0, kbps=64)
             print("wrote", name)
+    if not A.only or A.only == "props":
+        # every prop has its own DFPlayer and SD card: sd-card/props/<prop>/01/
+        for prop, slots in props_pack().items():
+            for slot, sig in slots.items():
+                loop = prop == "cauldron" and slot == 1
+                write_mp3(normalise(sig, -18 if loop else -16), os.path.join(ROOT, "sd-card", "props", prop, "01", "%03d.mp3" % slot),
+                          lead=0.0 if loop else 0.1)
+                print("wrote", prop, slot)
 
 
 if __name__ == "__main__":

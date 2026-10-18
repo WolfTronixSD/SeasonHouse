@@ -24,3 +24,7 @@ class DFPlayer:
 
     def stop(self):
         self._cmd(0x16)
+
+    def loop(self, on=True):
+        # repeat the track that is playing now (bubbling cauldron, rain...)
+        self._cmd(0x19, 0 if on else 1)
