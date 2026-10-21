@@ -14,6 +14,7 @@ DIY haunted-house electronics: ESP32 props with web control, WLED lighting, step
 
 - Seasons, characters and shows: [`docs/SEASONS.md`](docs/SEASONS.md)
 - Wiring and setup: [`docs/WIRING.md`](docs/WIRING.md) (spider), [`docs/PROPS.md`](docs/PROPS.md) (the other four)
+- Parts list for everything: [`docs/BOM.md`](docs/BOM.md)
 - Sounds for the SD card: a ready-made pack of 40 MP3s (real recordings, voices and music) in [`sd-card/`](sd-card/README.md), credits in [`sd-card/CREDITS.md`](sd-card/CREDITS.md)
 
 First install and wireless updates: see [`docs/WIRING.md`](docs/WIRING.md#first-run-one-time-with-a-usb-cable). Tests: `python3 tests/test_firmware.py && python3 tests/test_props.py`.
