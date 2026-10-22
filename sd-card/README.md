@@ -26,3 +26,14 @@ Slot 7 is the dance track (about 35 s). The rest are short effects and voice lin
 Tip: normalise everything to the same loudness, and put 0.1 s of silence at the start of each file so the DFPlayer does not clip the first syllable.
 
 To swap in your own sound, just replace the file with the same name (keep the 3-digit number). Everything is mono MP3 at 44.1 kHz, levelled to the same loudness, with 0.1 s of silence at the start.
+
+## The other props
+
+Each of the other props has its own DFPlayer, so its own card with just a folder `01`. Copy `props/<prop>/01/` to the root of that card:
+
+| Prop | Card contents |
+|---|---|
+| Lightning Window | `props/lightning/01/`: 001-003 close thunder cracks, 004-006 distant rolling thunder |
+| Scream-o-Meter | `props/screamometer/01/`: 001 "3, 2, 1, SCREAM!", 002 new high score, 003-005 reactions, 006 "You woke something up..." |
+| Cauldron of Doom | `props/cauldron/01/`: 001 bubbling loop, 002-005 the witch, 006 big gurgle |
+| Rat Express | `props/rat/01/`: 001 squeak, 002 claws, 003 squeal, 004 hiss, 005 "Eek!", 006 swarm |

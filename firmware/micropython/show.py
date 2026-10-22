@@ -96,6 +96,8 @@ class ShowEngine:
                 rig.wled(a)
             elif op == "CHIT":
                 rig.chitter(a)
+            elif op == "FOG":         # cauldron mist maker: 1 on, 0 back to idle
+                rig.fog(a)
             elif op == "WIGGLE":
                 if rig.moving():
                     return

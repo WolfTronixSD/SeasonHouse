@@ -13,8 +13,8 @@ jobs:
       - name: Compile every file with the MicroPython compiler
         run: |
           pip install mpy-cross
-          for f in firmware/micropython/*.py; do mpy-cross -o /tmp/out.mpy "$f"; done
+          for f in firmware/micropython/*.py firmware/props/*/*.py; do mpy-cross -o /tmp/out.mpy "$f"; done
       - name: Run the firmware tests (fake hardware)
-        run: python tests/test_firmware.py
+        run: python tests/test_firmware.py && python tests/test_props.py
       - name: Firmware shows match the simulator
         run: node tools/gen_seasons.mjs && git diff --exit-code firmware/micropython/seasons.json

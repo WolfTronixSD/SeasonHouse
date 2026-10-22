@@ -7,7 +7,7 @@ Legend: 😱 scary, 😂 funny, 🧰 parts you already have, 🛒 needs somethin
 ## Stepper props (cousins of the Corner Spider)
 
 1. **Corner Spider** 😱😂 🧰 *(built, `firmware/micropython`)*. Drops from the ceiling with lightning and a scream, twitches, laughs and winds back up. Has a Fake-Out Boing and a Spider Disco mode.
-2. **Rat Express** 😱 🧰. A stepper drives a loop of fishing line along the baseboard, and a toy rat clipped to it scurries across the floor with squeaks when the PIR fires. Run it right behind people's ankles.
+2. **Rat Express** 😱 🧰 *(built, `firmware/props/rat`)*. A stepper drives a loop of fishing line along the baseboard, and a toy rat clipped to it scurries across the floor with squeaks when the PIR fires. Run it right behind people's ankles.
 3. **Zipline Ghost** 😱 🧰. Same loop idea at ceiling height across the room: a cheesecloth ghost with white LEDs flies over the guests' heads while WLED flickers and the MP3 wails. Add a "boo" stop exactly above the sofa.
 4. **Haunted Toilet Paper** 😂 🧰. A stepper hidden behind the roll slowly unrolls the toilet paper when someone sits down (PIR under the sink), then plays "...I'm watching you" and rolls it back up. Tested by nobody, guaranteed reaction.
 5. **Ouija Board That Spells Your Name** 😱 🛒 GT2 belts. Two steppers make a hidden XY plotter under a table; a magnet drags the planchette. Type a guest's name on the web page and the board spells it letter by letter, then slides to "GOODBYE" while the lights die.
@@ -17,8 +17,8 @@ Legend: 😱 scary, 😂 funny, 🧰 parts you already have, 🛒 needs somethin
 
 7. **Possessed Welcome Sign** 😱😂 🧰 dot matrix. MAX7219 matrices scroll "WELCOME FRIENDS". When someone walks past it glitches, flashes "BEHIND YOU", then goes back to "WELCOME FRIENDS" as if nothing happened. Message list editable from the web page.
 8. **Wall of Eyes** 😱 🧰 WS2812. Cut a strip into pairs of LEDs and poke them through black fabric. Pairs blink lazily at random in the dark. On motion they all snap open at once and turn red, then fade out one by one.
-9. **Lightning Window** 😱 🧰 WLED. A WLED strip behind a sheer curtain with thunder on the MP3, timed so the flash comes first and the thunder rolls 1-3 seconds later like a real storm. Every 10th strike shows a silhouette (cardboard cut-out of a man with an axe) taped to the outside.
-10. **Scream-o-Meter** 😂 🛒 microphone. An I2S microphone measures how loud guests scream. WLED shows it as a VU bar up the wall, the dot matrix shows the score, and the web page keeps a leaderboard. Best party game of the night, and it doubles as a trigger: a loud scream sets off the spider.
+9. **Lightning Window** 😱 🧰 WLED *(built, `firmware/props/lightning`)*. A WLED strip behind a sheer curtain with thunder on the MP3, timed so the flash comes first and the thunder rolls 1-3 seconds later like a real storm. Every 10th strike shows a silhouette (cardboard cut-out of a man with an axe) taped to the outside.
+10. **Scream-o-Meter** 😂 🛒 microphone *(built, `firmware/props/screamometer`)*. An I2S microphone measures how loud guests scream. WLED shows it as a VU bar up the wall, the dot matrix shows the score, and the web page keeps a leaderboard. Best party game of the night, and it doubles as a trigger: a loud scream sets off the spider.
 11. **Chasing Shadow Hallway** 😱 🛒 mmWave. Three mmWave sensors along the hall. A single dim WLED pixel follows the guest one step behind them, then everything goes black and a whisper plays right where they stand.
 
 ## Sound and motion jump-scares
@@ -26,7 +26,7 @@ Legend: 😱 scary, 😂 funny, 🧰 parts you already have, 🛒 needs somethin
 12. **Skully the Terrible Comedian** 😂 🛒 servo. A skull on a servo jaw that moves with the MP3 audio. Tells awful dad jokes ("Why didn't the skeleton go to the party? He had no BODY to go with!"), waits for laughter with the mic, and if nobody laughs: screams, eyes go red, lights go out.
 13. **The Candy Bowl Grabber** 😱😂 🛒 servo. A rubber hand under fake moss in the candy bowl. An IR/ultrasonic sensor sees a hand reaching in, the hand grabs, and a gravelly voice says "Only ONE piece." Second reach in a minute: scream.
 14. **The Phone That Knows** 😱 🧰 beeper + MP3. An old phone rings (beeper) when someone walks by. If they pick it up (switch in the cradle), they hear "I can see you... nice costume." Record custom lines for specific guests.
-15. **Cauldron of Doom** 😱 🛒 mist maker. An ultrasonic mister in a bowl of water inside a cauldron, WLED green underneath, bubbling sound. On motion a hand (servo) rises out of the fog.
+15. **Cauldron of Doom** 😱 🛒 mist maker *(built, `firmware/props/cauldron`)*. An ultrasonic mister in a bowl of water inside a cauldron, WLED green underneath, bubbling sound. On motion a hand (servo) rises out of the fog.
 
 ## The glue
 
