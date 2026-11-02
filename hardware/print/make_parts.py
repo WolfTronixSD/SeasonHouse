@@ -158,7 +158,7 @@ def spider():
     parts = [ab, ce, waist]
     # fangs
     for sy in (-1, 1):
-        parts.append(capsule((28, sy * 5, 8), (36, sy * 3.5, 2.5), 2.6, 1.2))
+        parts.append(capsule((28, sy * 5, 8), (36, sy * 3.5, 1.3), 2.6, 1.3))   # tips touch the bed
     # legs, flat on the bed: hip, knee, tip
     for sy in (-1, 1):
         for a, bend in ((38, -32), (72, -18), (108, 18), (142, 32)):
