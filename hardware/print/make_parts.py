@@ -243,7 +243,10 @@ def spider(S=SPIDER_SCALE, coin_cell=True):
     # hollow head for the LED legs, and a wire channel back and up to the top
     cz = max(hc[2] + 0.5, (cell_top + 3.5) if coin_cell else 0)
     crz = min(hc[2] + hr[2] - 2.4 - cz, cz - 1.2)               # keep a floor and a roof on the hollow head
-    cut.append(ellipsoid((hc[0], 0, cz), (hr[0] - 2.4, hr[1] - 2.4, crz)))
+    # its roof is a 45° cone so it prints without a flat overhang
+    apex = cz + crz + 2.0
+    roof = cyl(apex + 1, apex + 1, 0.01).translate((hc[0], 0, -1))
+    cut.append(ellipsoid((hc[0], 0, cz), (hr[0] - 2.4, hr[1] - 2.4, crz)) ^ roof)
     ch = 2.0 if S >= 0.6 else 1.3
     ch_x = com_x - fin_r - ch - 1.5
     x0 = min(ch_x, px) if coin_cell else ch_x
@@ -251,6 +254,8 @@ def spider(S=SPIDER_SCALE, coin_cell=True):
     cut.append(cyl(ch, 60).translate((ch_x, 0, cz)))            # out of the top, for the slip ring wires
     if coin_cell:
         cut.append(cyl(LID_D / 2 + 0.2, LID_T + 1).translate((px, 0, -1)))
+        # 45° step from the lid recess to the cell pocket, so it isn't a flat ledge hanging in the air
+        cut.append(cyl(LID_D / 2 + 0.2, (LID_D - CELL_D) / 2, CELL_D / 2 + 0.4).translate((px, 0, LID_T - 0.01)))
         cut.append(cyl(CELL_D / 2 + 0.4, cell_top - LID_T + 0.01).translate((px, 0, LID_T - 0.01)))
         cut.append(cyl(1.0, cz).translate((px, 0, cell_top - 0.5)))            # wire from the top contact
         cut.append(cyl(0.9, cz + 1).translate((px + CELL_D / 2 + 1.3, 0, -0.5)))  # wire from the lid contact
