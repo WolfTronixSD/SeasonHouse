@@ -6,9 +6,9 @@ Three STLs, already lying in the right orientation for the bed:
 |---|---|---|---|
 | [`winch_bracket.stl`](winch_bracket.stl) | Holds the NEMA17, screws to the ceiling or the underside of a shelf, guides the line and holds the home microswitch | 90 × 88 × 46 mm | PETG or PLA, 0.2 mm, 4 walls, 30 % gyroid, no supports |
 | [`winch_spool.stl`](winch_spool.stl) | 30 mm spool for the fishing line (the size the firmware's step maths expects) | 44 × 44 × 25 mm | PLA, 0.16 mm, 4 walls, 40 % infill, no supports |
-| [`spider_body.stl`](spider_body.stl) | Spider with 3 mm LED eyes, a hollow head and a wire channel | 196 × 197 × 43 mm | PLA (black or dark purple), 0.2 mm, 2 walls, 10 % infill, no supports, brim on |
+| [`spider_body.stl`](spider_body.stl) | Spider with 3 mm LED eyes, a hollow head and a wire channel | 255 × 256 × 56 mm | PLA (black or dark purple), 0.2 mm, 2 walls, 10 % infill, no supports, brim on |
 
-The spider comes out around 40-50 g with those settings, which keeps the drop fast and quiet. It hangs level, because its line hole sits right over the balance point.
+The spider comes out around 80-100 g with those settings (change `SPIDER_SCALE` in `make_parts.py` for a smaller or bigger one), which keeps the drop fast and quiet. It hangs level, because its line hole sits right over the balance point.
 
 ## Extra hardware
 

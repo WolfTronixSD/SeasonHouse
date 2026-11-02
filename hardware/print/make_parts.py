@@ -151,7 +151,10 @@ def ellipsoid(c, r):
     return Manifold.sphere(1, 64).scale(r).translate(c)
 
 
-def spider():
+SPIDER_SCALE = 1.3   # body and legs; the LED, wire and line holes keep their real sizes
+
+
+def spider(S=SPIDER_SCALE):
     ab = ellipsoid((-30, 0, 13), (34, 26, 24))
     ce = ellipsoid((14, 0, 10), (19, 17, 14))
     waist = Manifold.batch_hull([ball((-6, 0, 10), 9), ball((4, 0, 10), 9)])
@@ -171,22 +174,22 @@ def spider():
     # hanging fin over the balance point
     fin = Manifold.batch_hull([box(-22, -8, -2.5, 2.5, 22, 30), along_y(cyl(6, 5)).translate((-15, -2.5, 37))])
     parts.append(fin)
-    s = union(parts)
-    s = s - box(-200, 200, -200, 200, -50, 0)          # flat bottom
+    s = union(parts).scale((S, S, S))
+    s = s - box(-300, 300, -300, 300, -50, 0)          # flat bottom
     cut = []
     # hollow head for the LED legs, and a 4 mm wire channel to the top
-    cut.append(ellipsoid((14, 0, 11), (11, 10, 6.5)))
-    cut.append(along_x(cyl(2.0, 40)).translate((-24, 0, 11)))
-    cut.append(cyl(2.0, 40).translate((-24, 0, 11)))
+    cut.append(ellipsoid((14 * S, 0, 11 * S), (11 * S, 10 * S, 6.5 * S)))
+    cut.append(along_x(cyl(2.0, 40 * S)).translate((-24 * S, 0, 11 * S)))
+    cut.append(cyl(2.0, 40 * S).translate((-24 * S, 0, 11 * S)))
     # 3 mm LED eyes: snug 3.1 mm holes, a recess for the 3.8 mm rim
     for sy in (-1, 1):
         d = np.array([math.cos(math.radians(12)), sy * math.sin(math.radians(18)), math.sin(math.radians(14))])
-        eye = np.array([30.5, sy * 6.0, 15.0])
+        eye = np.array([30.5, sy * 6.0, 15.0]) * S
         rot = lambda m: m.transform(_frame(d, eye))
-        cut.append(rot(cyl(1.55, 16).translate((0, 0, -14))))
+        cut.append(rot(cyl(1.55, 16 * S).translate((0, 0, -14 * S))))
         cut.append(rot(cyl(2.05, 6).translate((0, 0, -1.2))))
     # line hole through the fin
-    cut.append(along_y(cyl(1.6, 20)).translate((-15, -10, 37)))
+    cut.append(along_y(cyl(1.6, 20 * S)).translate((-15 * S, -10 * S, 37 * S)))
     return s - union(cut)
 
 
