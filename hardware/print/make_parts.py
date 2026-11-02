@@ -151,46 +151,73 @@ def ellipsoid(c, r):
     return Manifold.sphere(1, 64).scale(r).translate(c)
 
 
-SPIDER_SCALE = 1.3   # body and legs; the LED, wire and line holes keep their real sizes
+SPIDER_SCALE = 0.3   # of the original 196 mm design
 
 
 def spider(S=SPIDER_SCALE):
-    ab = ellipsoid((-30, 0, 13), (34, 26, 24))
-    ce = ellipsoid((14, 0, 10), (19, 17, 14))
-    waist = Manifold.batch_hull([ball((-6, 0, 10), 9), ball((4, 0, 10), 9)])
+    """The body and legs scale with S. The 3 mm LED eyes, wires and line keep
+    their real sizes, so a small spider gets a head big enough for two LEDs,
+    legs and fins no thinner than a nozzle can print, and its hanging fin
+    placed over its real balance point."""
+    sc = lambda p: tuple(v * S for v in p)
+    # head: big enough for two 3 mm LEDs (3.8 mm rims) side by side
+    hr = tuple(max(r * S, m) for r, m in zip((19, 17, 14), (9.0, 8.0, 7.0)))
+    hc = (14 * S, 0, max(10 * S, hr[2] * 0.45))
+    head_front = hc[0] + hr[0]
+    ab = ellipsoid(sc((-30, 0, 0)), sc((34, 26, 24))).translate((0, 0, 13 * S))
+    ce = ellipsoid(hc, hr)
+    wr = max(9 * S, 3.5)
+    waist = Manifold.batch_hull([ball(sc((-6, 0, 0)), wr).translate((0, 0, max(10 * S, wr * 0.8))),
+                                 ball(sc((4, 0, 0)), wr).translate((0, 0, max(10 * S, wr * 0.8)))])
     parts = [ab, ce, waist]
-    # fangs
+    # fangs, tips on the bed
+    fr = max(1.3 * S, 0.8)
     for sy in (-1, 1):
-        parts.append(capsule((28, sy * 5, 8), (36, sy * 3.5, 1.3), 2.6, 1.3))   # tips touch the bed
-    # legs, flat on the bed: hip, knee, tip
+        parts.append(capsule((head_front - 4 * max(S, 0.6), sy * max(5 * S, 2.2), max(8 * S, 3.5)),
+                             (head_front + 2.5 * max(S, 0.5), sy * max(3.5 * S, 1.8), fr), max(2.6 * S, 1.2), fr))
+    # legs, flat on the bed: hip, knee, tip (never thinner than 2 mm)
+    lr = lambda r: max(r * S, 1.0)
     for sy in (-1, 1):
         for a, bend in ((38, -32), (72, -18), (108, 18), (142, 32)):
-            ar = math.radians(a)
-            hip = (14 + 13 * math.cos(ar), sy * 13 * math.sin(ar), 4.0)
-            knee = (hip[0] + 46 * math.cos(ar), hip[1] + sy * 46 * math.sin(ar), 3.6)
-            br = math.radians(a + bend)
-            tip = (knee[0] + 50 * math.cos(br), knee[1] + sy * 50 * math.sin(br), 1.8)
-            parts += [capsule(hip, knee, 4.0, 3.6), capsule(knee, tip, 3.6, 1.8), ball(knee, 4.2)]
-    # hanging fin over the balance point
-    fin = Manifold.batch_hull([box(-22, -8, -2.5, 2.5, 22, 30), along_y(cyl(6, 5)).translate((-15, -2.5, 37))])
-    parts.append(fin)
-    s = union(parts).scale((S, S, S))
-    s = s - box(-300, 300, -300, 300, -50, 0)          # flat bottom
+            ar, br = math.radians(a), math.radians(a + bend)
+            hip = (hc[0] + max(13 * S, hr[1] - 2) * math.cos(ar), sy * max(13 * S, hr[1] - 2) * math.sin(ar))
+            knee = (hip[0] + 46 * S * math.cos(ar), hip[1] + sy * 46 * S * math.sin(ar))
+            tip = (knee[0] + 50 * S * math.cos(br), knee[1] + sy * 50 * S * math.sin(br))
+            r0, r1, r2 = lr(4.0), lr(3.6), lr(1.8)
+            parts += [capsule((*hip, r0), (*knee, r1), r0, r1), capsule((*knee, r1), (*tip, r2), r1, r2), ball((*knee, r1), r1 * 1.15)]
+    body = union(parts)
+    body = body - box(-300, 300, -300, 300, -50, 0)          # flat bottom
+    # hanging fin straight over the balance point, so it hangs level
+    com_x = _centre_of_mass(body)[0]
+    top = max(z for x, y, z in np.asarray(body.to_mesh().vert_properties)[:, :3] if abs(x - com_x) < 1.5 and abs(y) < 1.5)
+    fin_r, fin_t = max(6 * S, 3.5), max(5 * S, 3.0)
+    fin_z = top + fin_r * 0.4
+    fin = Manifold.batch_hull([box(com_x - fin_r, com_x + fin_r, -fin_t / 2, fin_t / 2, top - 6 * max(S, 0.5), top - 1),
+                               along_y(cyl(fin_r, fin_t)).translate((com_x, -fin_t / 2, fin_z))])
+    s = body + fin
     cut = []
-    # hollow head for the LED legs, and a 4 mm wire channel to the top
-    cut.append(ellipsoid((14 * S, 0, 11 * S), (11 * S, 10 * S, 6.5 * S)))
-    cut.append(along_x(cyl(2.0, 40 * S)).translate((-24 * S, 0, 11 * S)))
-    cut.append(cyl(2.0, 40 * S).translate((-24 * S, 0, 11 * S)))
+    # hollow head for the LED legs, and a wire channel back and up to the top
+    cut.append(ellipsoid((hc[0], 0, hc[2] + 0.5), (hr[0] - 2.4, hr[1] - 2.4, hr[2] - 2.4)))
+    ch = 2.0 if S >= 0.6 else 1.3
+    ch_x = com_x - fin_r - ch - 1.5
+    cut.append(along_x(cyl(ch, hc[0] - ch_x)).translate((ch_x, 0, hc[2] + 0.5)))
+    cut.append(cyl(ch, 60).translate((ch_x, 0, hc[2] + 0.5)))
     # 3 mm LED eyes: snug 3.1 mm holes, a recess for the 3.8 mm rim
+    ey, ez = max(6 * S, 2.7), hc[2] + 0.35 * hr[2]
     for sy in (-1, 1):
+        ex = hc[0] + hr[0] * math.sqrt(max(0.0, 1 - (ey / hr[1]) ** 2 - ((ez - hc[2]) / hr[2]) ** 2))
         d = np.array([math.cos(math.radians(12)), sy * math.sin(math.radians(18)), math.sin(math.radians(14))])
-        eye = np.array([30.5, sy * 6.0, 15.0]) * S
-        rot = lambda m: m.transform(_frame(d, eye))
-        cut.append(rot(cyl(1.55, 16 * S).translate((0, 0, -14 * S))))
+        rot = lambda m: m.transform(_frame(d, np.array([ex, sy * ey, ez])))
+        cut.append(rot(cyl(1.55, 16).translate((0, 0, -14))))
         cut.append(rot(cyl(2.05, 6).translate((0, 0, -1.2))))
     # line hole through the fin
-    cut.append(along_y(cyl(1.6, 20 * S)).translate((-15 * S, -10 * S, 37 * S)))
+    cut.append(along_y(cyl(0.9 if S < 0.6 else 1.6, 40)).translate((com_x, -20, fin_z)))
     return s - union(cut)
+
+
+def _centre_of_mass(m):
+    mesh = m.to_mesh()
+    return trimesh.Trimesh(np.asarray(mesh.vert_properties)[:, :3], np.asarray(mesh.tri_verts)).center_mass
 
 
 def _frame(d, origin):

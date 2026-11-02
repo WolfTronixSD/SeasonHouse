@@ -6,9 +6,9 @@ Three STLs, already lying in the right orientation for the bed:
 |---|---|---|---|
 | [`winch_bracket.stl`](winch_bracket.stl) | Holds the NEMA17, screws to the ceiling or the underside of a shelf, guides the line and holds the home microswitch | 90 × 88 × 46 mm | PETG or PLA, 0.2 mm, 4 walls, 30 % gyroid, no supports |
 | [`winch_spool.stl`](winch_spool.stl) | 30 mm spool for the fishing line (the size the firmware's step maths expects) | 44 × 44 × 25 mm | PLA, 0.16 mm, 4 walls, 40 % infill, no supports |
-| [`spider_body.stl`](spider_body.stl) | Spider with 3 mm LED eyes, a hollow head and a wire channel | 255 × 256 × 56 mm | PLA (black or dark purple), 0.2 mm, 2 walls, 10 % infill, no supports, brim on |
+| [`spider_body.stl`](spider_body.stl) | Spider with 3 mm LED eyes, a hollow head and a wire channel | 63 × 64 × 15 mm | PLA (black or dark purple), 0.12 mm, 2 walls, 15 % infill, no supports, brim on |
 
-The spider comes out around 80-100 g with those settings (change `SPIDER_SCALE` in `make_parts.py` for a smaller or bigger one), which keeps the drop fast and quiet. It hangs level, because its line hole sits right over the balance point.
+The spider is 30 % of the first design and weighs only about 4 g (change `SPIDER_SCALE` in `make_parts.py` for another size). Its head is a little bigger than true scale so two 3 mm LEDs fit, which keeps the drop fast and quiet. It hangs level, because its line hole sits right over the balance point.
 
 ## Extra hardware
 
@@ -16,7 +16,7 @@ The spider comes out around 80-100 g with those settings (change `SPIDER_SCALE` 
 - 1× M3 × 6 mm set screw or a short M3 screw, plus 1 M3 nut: spool to the motor shaft (the nut drops into the slot in the collar)
 - 4× 4 mm wood screws, countersunk: bracket to the ceiling or shelf
 - 2× M2 × 12 mm screws and nuts: the microswitch to the tab under the arm (a standard 20 × 10 mm lever switch with holes 9.5 mm apart)
-- 2× 3 mm LEDs (red), 30 AWG wire (3 cores through the slip ring), a small bead for the line
+- 2× 3 mm LEDs (red), 30 AWG wire (3 cores through the slip ring), a small bead for the line. At 4 g the spider is light, so add a small fishing sinker inside the line knot if it drops slowly or twists
 
 ## Putting it together
 
