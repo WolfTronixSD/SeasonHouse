@@ -61,7 +61,7 @@ def capsule(a, b, ra, rb):
 def save(m, name):
     m = m.translate((0, 0, -m.bounding_box()[2]))      # sit on the bed
     mesh = m.to_mesh()
-    tm = trimesh.Trimesh(np.asarray(mesh.vert_properties)[:, :3], np.asarray(mesh.tri_verts), process=True)
+    tm = trimesh.Trimesh(np.asarray(mesh.vert_properties)[:, :3], np.asarray(mesh.tri_verts), process=False)
     assert tm.is_watertight, name
     tm.export(os.path.join(OUT, name))
     lo, hi = tm.bounds
@@ -78,6 +78,8 @@ T = 6.0                      # front plate thickness
 ZC = -29.5                   # motor axis height under the ceiling
 ARM_Z = (-61.0, -56.0)       # guide arm
 SW_TAB_X = 21.0             # microswitch tab; a 6.4 mm switch on its face puts the lever under the line
+TOP_LEN = 62.0               # top plate reaches past the slip ring
+ZIP_Y = 57.0                 # zip-tie slots over the slip ring's outer end
 SW_Y = 6.0                   # middle of the switch body (20 mm long, y -4..16)
 SPOOL_GAP = 1.5              # spool face to front plate
 LINE_X = HUB_D / 2           # the line leaves the spool on this side
@@ -87,7 +89,7 @@ LINE_Y = SPOOL_GAP + SPOOL_LEN - (1.6 + 5.0)       # middle of the straight hub,
 
 def bracket():
     front = box(-30, 30, -T, 0, ARM_Z[0], 0)
-    top = box(-42, 42, -T, 40, -5, 0)
+    top = box(-42, 42, -T, TOP_LEN, -5, 0)
     arm = box(-30, 48, -T, 32, ARM_Z[0], ARM_Z[1])
     # switch tab, standing on the bed like the plates; the switch sits on its
     # left face with the lever reaching forward under the line hole
@@ -114,6 +116,9 @@ def bracket():
         for y in (8, 32):
             holes.append(cyl(2.3, 10).translate((x, y, -8)))
             holes.append(cyl(4.6, 2.4, 2.3).translate((x, y, -5.01)))
+    # zip-tie slots over the slip ring, to hold its fixed end's wires still
+    for x in (-7, 5):
+        holes.append(box(x, x + 2, ZIP_Y - 2, ZIP_Y + 2, -10, 5))
     # microswitch slots (M2 screws, 9.5 mm apart), 12 mm of height adjustment
     for y in (SW_Y - 4.75, SW_Y + 4.75):
         holes.append(Manifold.batch_hull([along_x(cyl(1.2, 10)).translate((SW_TAB_X - 3, y, z)) for z in (-66, -79)]))
@@ -143,7 +148,35 @@ def spool():
     s = s - box(3.3, 6.0, -3.0, 3.0, zc - 3.0, top + 1)
     # tie-off hole for the line through the outer flange, just above the hub
     s = s - cyl(0.8, 4).translate((0, r_hub + 1.6, -1))
+    # slip ring cup: three M2 pilot holes in the outer face, and a hole on the
+    # other side of the hub for the spinning wires to reach the line
+    for a in CUP_SCREW_ANGLES:
+        s = s - cyl(0.8, 8).translate((CUP_SCREW_R * math.cos(math.radians(a)), CUP_SCREW_R * math.sin(math.radians(a)), -1))
+    s = s - cyl(0.9, 4).translate((0, -(r_hub + 1.6), -1))
     return s
+
+
+# ======================================================== slip ring cup ===
+# Holds a 12.5 mm capsule slip ring on the spool's outer face, on the motor
+# axis. The capsule's spinning end sits in the cup; its wires leave through the
+# slot, cross the flange and go through the spool's wire hole onto the hub,
+# winding up with the fishing line. Screws on with 3 M2 x 8 screws.
+SLIPRING_D = 12.5
+CUP_SCREW_R = 10.5
+CUP_SCREW_ANGLES = (90, 210, 330)
+
+
+def slipring_cup():
+    base_t, depth = 2.0, 12.0
+    r_in = SLIPRING_D / 2 + 0.2
+    c = cyl(FLANGE_D / 2 - 7, base_t) + cyl(r_in + 2.0, base_t + depth)
+    c = c - cyl(r_in, depth + 1).translate((0, 0, base_t))
+    c = c - cyl(3.0, 10).translate((0, 0, -1))                      # centre: clear of the shaft's end
+    c = c - box(r_in - 1, r_in + 3, -2.2, 2.2, base_t, base_t + 3.5)   # wire slot at the bottom of the cup
+    for a in CUP_SCREW_ANGLES:
+        x, y = CUP_SCREW_R * math.cos(math.radians(a)), CUP_SCREW_R * math.sin(math.radians(a))
+        c = c - cyl(1.15, 10).translate((x, y, -1)) - cyl(1.15, 1.21, 2.2).translate((x, y, base_t - 1.2))
+    return c
 
 
 # ================================================================= spider ===
@@ -151,10 +184,15 @@ def ellipsoid(c, r):
     return Manifold.sphere(1, 64).scale(r).translate(c)
 
 
-SPIDER_SCALE = 0.3   # of the original 196 mm design
+SPIDER_SCALE = 0.7   # of the original 196 mm design
+CELL_D, CELL_T, CELL_G = 20.0, 3.2, 3.0   # CR2032: diameter, thickness, grams
+LID_D, LID_T, LID_SCREW_R = 26.0, 2.0, 11.8
 
 
-def spider(S=SPIDER_SCALE):
+SPIDER_INFO = {}   # where the line, cell and eyes ended up (for the assembly guide)
+
+
+def spider(S=SPIDER_SCALE, coin_cell=True):
     """The body and legs scale with S. The 3 mm LED eyes, wires and line keep
     their real sizes, so a small spider gets a head big enough for two LEDs,
     legs and fins no thinner than a nozzle can print, and its hanging fin
@@ -187,8 +225,14 @@ def spider(S=SPIDER_SCALE):
             parts += [capsule((*hip, r0), (*knee, r1), r0, r1), capsule((*knee, r1), (*tip, r2), r1, r2), ball((*knee, r1), r1 * 1.15)]
     body = union(parts)
     body = body - box(-300, 300, -300, 300, -50, 0)          # flat bottom
-    # hanging fin straight over the balance point, so it hangs level
+    # coin cell under the abdomen: a recess for the lid, the cell pocket above it
+    px = -30 * S
+    cell_top = LID_T + CELL_T + 0.6                            # 0.6 mm for the copper tape contacts
+    # hanging fin straight over the balance point (cell included), so it hangs level
     com_x = _centre_of_mass(body)[0]
+    if coin_cell:
+        m_body = body.volume() / 1000 * 1.24 * 0.45            # PLA at 2 walls, 15 % infill, roughly
+        com_x = (com_x * m_body + px * CELL_G) / (m_body + CELL_G)
     top = max(z for x, y, z in np.asarray(body.to_mesh().vert_properties)[:, :3] if abs(x - com_x) < 1.5 and abs(y) < 1.5)
     fin_r, fin_t = max(6 * S, 3.5), max(5 * S, 3.0)
     fin_z = top + fin_r * 0.4
@@ -197,22 +241,43 @@ def spider(S=SPIDER_SCALE):
     s = body + fin
     cut = []
     # hollow head for the LED legs, and a wire channel back and up to the top
-    cut.append(ellipsoid((hc[0], 0, hc[2] + 0.5), (hr[0] - 2.4, hr[1] - 2.4, hr[2] - 2.4)))
+    cz = max(hc[2] + 0.5, (cell_top + 3.5) if coin_cell else 0)
+    crz = min(hc[2] + hr[2] - 2.4 - cz, cz - 1.2)               # keep a floor and a roof on the hollow head
+    cut.append(ellipsoid((hc[0], 0, cz), (hr[0] - 2.4, hr[1] - 2.4, crz)))
     ch = 2.0 if S >= 0.6 else 1.3
     ch_x = com_x - fin_r - ch - 1.5
-    cut.append(along_x(cyl(ch, hc[0] - ch_x)).translate((ch_x, 0, hc[2] + 0.5)))
-    cut.append(cyl(ch, 60).translate((ch_x, 0, hc[2] + 0.5)))
+    x0 = min(ch_x, px) if coin_cell else ch_x
+    cut.append(along_x(cyl(ch, hc[0] - x0)).translate((x0, 0, cz)))
+    cut.append(cyl(ch, 60).translate((ch_x, 0, cz)))            # out of the top, for the slip ring wires
+    if coin_cell:
+        cut.append(cyl(LID_D / 2 + 0.2, LID_T + 1).translate((px, 0, -1)))
+        cut.append(cyl(CELL_D / 2 + 0.4, cell_top - LID_T + 0.01).translate((px, 0, LID_T - 0.01)))
+        cut.append(cyl(1.0, cz).translate((px, 0, cell_top - 0.5)))            # wire from the top contact
+        cut.append(cyl(0.9, cz + 1).translate((px + CELL_D / 2 + 1.3, 0, -0.5)))  # wire from the lid contact
+        for sy in (-1, 1):
+            cut.append(cyl(0.8, 7).translate((px, sy * LID_SCREW_R, LID_T - 0.5)))  # M2 pilot holes
     # 3 mm LED eyes: snug 3.1 mm holes, a recess for the 3.8 mm rim
     ey, ez = max(6 * S, 2.7), hc[2] + 0.35 * hr[2]
+    eyes = []
     for sy in (-1, 1):
         ex = hc[0] + hr[0] * math.sqrt(max(0.0, 1 - (ey / hr[1]) ** 2 - ((ez - hc[2]) / hr[2]) ** 2))
         d = np.array([math.cos(math.radians(12)), sy * math.sin(math.radians(18)), math.sin(math.radians(14))])
         rot = lambda m: m.transform(_frame(d, np.array([ex, sy * ey, ez])))
+        eyes.append(([ex, sy * ey, ez], d.tolist()))
         cut.append(rot(cyl(1.55, 16).translate((0, 0, -14))))
         cut.append(rot(cyl(2.05, 6).translate((0, 0, -1.2))))
+    SPIDER_INFO.update(hang=(com_x, 0.0, fin_z), cell=(px, 0.0, LID_T), eyes=eyes)
     # line hole through the fin
     cut.append(along_y(cyl(0.9 if S < 0.6 else 1.6, 40)).translate((com_x, -20, fin_z)))
     return s - union(cut)
+
+
+def lid():
+    l = cyl(LID_D / 2 - 0.2, LID_T)
+    for sy in (-1, 1):
+        l = l - cyl(1.15, 5).translate((0, sy * LID_SCREW_R, -1)) - cyl(1.15, 1.21, 2.2).translate((0, sy * LID_SCREW_R, 0.8))
+    l = l - box(LID_D / 2 - 2.5, LID_D / 2 + 1, -3, 3, 1.0, 5)   # thumbnail notch
+    return l
 
 
 def _centre_of_mass(m):
@@ -233,3 +298,5 @@ if __name__ == "__main__":
     save(bracket(), "winch_bracket.stl")
     save(spool(), "winch_spool.stl")
     save(spider(), "spider_body.stl")
+    save(lid(), "spider_battery_lid.stl")
+    save(slipring_cup(), "slipring_cup.stl")
