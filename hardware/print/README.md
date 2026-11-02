@@ -26,7 +26,7 @@ Two ways to power the eyes:
 - 4× 4 mm wood screws, countersunk: bracket to the ceiling or shelf
 - 2× M2 × 12 mm screws and nuts: the microswitch to the tab under the arm (a standard 20 × 10 mm lever switch with holes 9.5 mm apart)
 - 2× 3 mm red LEDs and a 6 mm bead for the line
-- Coin cell: 1× CR2032, copper tape, 2× M2 × 6 mm pan-head screws for the lid
+- Coin cell: 1× CR2032, copper tape, 2× M2 × 6 mm pan-head screws for the lid, 1× M2 × 12 mm pan-head screw as the + contact
 - Slip ring: 12.5 mm 6-wire capsule slip ring, 3× M2 × 8 mm screws (cup to spool), 0.1 mm magnet wire, 1 small zip tie, a drop of glue
 
 ## Putting it together
@@ -39,7 +39,7 @@ The [3D guide](https://claude.ai/artifact/EgQjmvF7dXVjvdr2J8T1cT) shows each ste
 4. Screw the microswitch to the side of the slotted tab under the arm that faces the line hole (nuts on the other side), with the lever pointing forward. Bend the lever tip so it sits just under the line hole. Wire it to GPIO 33 and GND.
 5. Tie the fishing line through the small hole in the spool's outer flange, wind a few turns on, then feed it down through the funnel hole in the arm. The line has to leave the spool on the side over that hole. Thread the bead on about 5 cm above where the spider will hang.
 6. Screw the top plate to the ceiling or under a shelf with 4 countersunk wood screws. Slip ring only: zip-tie its fixed wires through the two slots above it so that end can't spin, and run them to the ESP32 (GPIO18 → 100 Ω → ring 1, GPIO19 → 100 Ω → ring 2, GND → ring 3, see [WIRING.md](../../docs/WIRING.md)).
-7. Eyes on a coin cell: solder the two LEDs in parallel (long legs to one wire, short legs to another), feed the wires in through the eye holes, through the head and the channel to the cell pocket, and glue the LEDs in. Tape the + wire under copper tape on the pocket ceiling, and the − wire (from the small hole at the pocket's edge) under copper tape on the inside of the lid. Put the CR2032 in with + up and screw the lid on with 2× M2 × 6. A strip of paper between the cell and the tape switches the eyes off.
+7. Eyes on a coin cell: solder the two LEDs in parallel (long legs to one wire, short legs to another), feed the wires in through the eye holes, through the head and the channel to the cell pocket, and glue the LEDs in. Wrap the + wire round an M2 × 12 pan-head screw and drive it up into the hole in the top of the pocket until its head sits about where the cell's top will be (it's the + contact; adjust it so the lid closes with a light press). Tape the − wire (from the small hole at the pocket's edge) under copper tape on the inside of the lid. Put the CR2032 in with + up and screw the lid on with 2× M2 × 6. A strip of paper between the cell and the tape switches the eyes off.
 8. Eyes on the slip ring: solder the magnet wires to the LEDs instead (one per eye's + leg, one to both − legs) and run them down beside the line. Leave the cell out.
 9. Tie the line through the hole in the fin. Power up and set the drop length on the web page. If the spider goes the wrong way, flip `DIR_DOWN` in `config.py`.
 

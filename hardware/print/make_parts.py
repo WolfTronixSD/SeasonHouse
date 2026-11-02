@@ -274,7 +274,11 @@ def spider(S=SPIDER_SCALE, coin_cell=True):
         # 45° step from the lid recess to the cell pocket, so it isn't a flat ledge hanging in the air
         cut.append(cyl(LID_D / 2 + 0.2, (LID_D - CELL_D) / 2, CELL_D / 2 + 0.3).translate((px, 0, LID_T - 0.01)))
         cut.append(cyl(CELL_D / 2 + 0.3, cell_top - LID_T + 0.01).translate((px, 0, LID_T - 0.01)))
-        cut.append(cyl(1.0, cz).translate((px, 0, cell_top - 0.5)))            # wire from the top contact
+        # pocket roof: a 45° cone with a small flat top, no wide bridge. The + contact is an
+        # M2 x 12 pan-head screw driven up into the top; its head touches the cell.
+        roof_r = 2.5
+        cut.append(cyl(CELL_D / 2 + 0.3, CELL_D / 2 + 0.3 - roof_r, roof_r).translate((px, 0, cell_top - 0.01)))
+        cut.append(cyl(0.75, 8).translate((px, 0, cell_top + CELL_D / 2 + 0.3 - roof_r - 0.5)))   # M2 pilot for the contact screw
         cut.append(cyl(0.9, cz + 1).translate((px + CELL_D / 2 + 1.3, 0, -0.5)))  # wire from the lid contact
         for sy in (-1, 1):
             cut.append(cyl(0.75, 9).translate((px, sy * LID_SCREW_R, LID_T - 0.5)))  # M2 pilot holes
