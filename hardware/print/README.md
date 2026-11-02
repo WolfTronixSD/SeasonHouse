@@ -8,7 +8,7 @@ Three STLs, already lying in the right orientation for the bed:
 | [`winch_spool.stl`](winch_spool.stl) | 30 mm spool for the fishing line (the size the firmware's step maths expects) | 44 × 44 × 25 mm | PLA, 0.16 mm, 4 walls, 40 % infill, no supports |
 | [`spider_body.stl`](spider_body.stl) | Spider with 3 mm LED eyes, a hollow head and a wire channel | 63 × 64 × 15 mm | PLA (black or dark purple), 0.12 mm, 2 walls, 15 % infill, no supports, brim on |
 
-The spider is 30 % of the first design and weighs only about 4 g (change `SPIDER_SCALE` in `make_parts.py` for another size). Its head is a little bigger than true scale so two 3 mm LEDs fit, which keeps the drop fast and quiet. It hangs level, because its line hole sits right over the balance point.
+The spider is 30 % of the first design and weighs only about 4 g (change `SPIDER_SCALE` in `make_parts.py` for another size). Its head is a little bigger than true scale so two 3 mm LEDs fit. It hangs level, because its line hole sits right over the balance point.
 
 ## Extra hardware
 
