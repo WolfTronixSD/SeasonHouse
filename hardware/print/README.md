@@ -23,7 +23,7 @@ The spider comes out around 40-50 g with those settings, which keeps the drop fa
 1. Screw the motor to the back of the bracket so the shaft comes through the big hole and the cable points up.
 2. Push the spool on the shaft with the collar towards the bracket and the set screw on the shaft's flat, leaving a 1-2 mm gap to the bracket. Tighten the set screw.
 3. Tie the fishing line through the small hole in the spool's outer flange, wind a few turns on, then feed it down through the funnel hole in the arm. The line has to leave the spool on the side over that hole. If the spider goes the wrong way, flip `DIR_DOWN` in `config.py`.
-4. Screw the microswitch to the outer face of the slotted tab under the arm (nuts on the inside), with the lever pointing forward. Bend the lever tip so it sits just under the line hole. Slide it up or down until the bead on the line clicks the lever just before the bead touches the arm.
+4. Screw the microswitch to the side of the slotted tab under the arm that faces the line hole (nuts on the other side), with the lever pointing forward. Bend the lever tip so it sits just under the line hole. Slide it up or down until the bead on the line clicks the lever just before the bead touches the arm.
 5. Solder three thin 30 AWG wires to the LEDs first: one to each eye's + leg and one to both − legs. The 100 Ω resistors stay at the ESP32 end, as in [WIRING.md](../../docs/WIRING.md). Then feed the wires in through the eye holes, through the hollow head and out of the channel on top of the body behind the fin. Pull the LEDs into the eye holes so the rims sit in the recesses, and glue them.
 6. Tie the line through the hole in the fin, with the bead about 5 cm above the spider.
 
