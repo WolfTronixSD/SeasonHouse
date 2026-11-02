@@ -17,7 +17,7 @@ Two ways to power the eyes:
 - **Coin cell** (simplest): a CR2032 in the spider lights the eyes all the time. No wires go up the line, and you can skip the slip ring and its cup.
 - **Slip ring + magnet wire**: the ESP32 drives the eyes, so the glow, pulse, flicker and disco effects work. Three strands of 0.1 mm magnet wire run down beside the fishing line from the slip ring on the spool.
 
-**Quickest:** open [`seasonhouse_spider.3mf`](seasonhouse_spider.3mf) in Bambu Studio (File → Open Project). It has all five parts laid out on one plate at 0.2 mm, with each part's walls, infill and brim already set, so you only pick the printer and filament. Rebuild it with `python3 hardware/print/make_3mf.py` after changing the STLs.
+**All on one plate:** open [`seasonhouse_spider.3mf`](seasonhouse_spider.3mf) in Bambu Studio (File → Open Project). It has all five parts laid out on one plate. Bambu Studio may load only the parts, so check the walls, infill and brim from the print table above. Rebuild it with `python3 hardware/print/make_3mf.py` after changing the STLs.
 
 ## Extra hardware
 
@@ -26,7 +26,7 @@ Two ways to power the eyes:
 - 4× 4 mm wood screws, countersunk: bracket to the ceiling or shelf
 - 2× M2 × 12 mm screws and nuts: the microswitch to the tab under the arm (a standard 20 × 10 mm lever switch with holes 9.5 mm apart)
 - 2× 3 mm red LEDs and a 6 mm bead for the line
-- Coin cell: 1× CR2032, copper tape, 2× M2 × 6 mm screws for the lid
+- Coin cell: 1× CR2032, copper tape, 2× M2 × 6 mm pan-head screws for the lid
 - Slip ring: 12.5 mm 6-wire capsule slip ring, 3× M2 × 8 mm screws (cup to spool), 0.1 mm magnet wire, 1 small zip tie, a drop of glue
 
 ## Putting it together

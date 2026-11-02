@@ -1,6 +1,7 @@
 """Pack the five STLs into one Bambu Studio project (.3mf) with each part's
-print settings already set (walls, infill, brim). Open it with File > Open
-Project; pick your printer and filament and slice."""
+per-part settings (walls, infill, brim) in Bambu's model_settings.config.
+Bambu Studio only trusts those inside its own projects, so it may load just
+the parts and their layout; then set the settings by hand (see README)."""
 import os, uuid, zipfile
 import numpy as np, trimesh
 
@@ -57,7 +58,7 @@ def main(out=os.path.join(HERE, "seasonhouse_spider.3mf")):
         "3D/Objects/object_1.model": f'<?xml version="1.0" encoding="UTF-8"?><model unit="millimeter" xml:lang="en-US" {ns}>'
             f'<metadata name="BambuStudio:3mfVersion">1</metadata><resources>{"".join(objs)}</resources><build/></model>',
         "3D/3dmodel.model": f'<?xml version="1.0" encoding="UTF-8"?><model unit="millimeter" xml:lang="en-US" {ns}>'
-            '<metadata name="Application">BambuStudio-02.00.00.00</metadata><metadata name="BambuStudio:3mfVersion">1</metadata>'
+            '<metadata name="Application">SeasonHouse make_3mf.py</metadata>'
             '<metadata name="Title">SeasonHouse corner spider</metadata>'
             f'<resources>{"".join(comps)}</resources><build p:UUID="{uuid.uuid4()}">{"".join(build)}</build></model>',
         "Metadata/model_settings.config": '<?xml version="1.0" encoding="UTF-8"?><config>' + "".join(cfg) +

@@ -186,7 +186,7 @@ def ellipsoid(c, r):
 
 SPIDER_SCALE = 0.7   # of the original 196 mm design
 CELL_D, CELL_T, CELL_G = 20.0, 3.2, 3.0   # CR2032: diameter, thickness, grams
-LID_D, LID_T, LID_SCREW_R = 26.0, 2.0, 11.8
+LID_D, LID_T, LID_SCREW_R = 26.0, 2.0, 11.2
 
 
 SPIDER_INFO = {}   # where the line, cell and eyes ended up (for the assembly guide)
@@ -212,7 +212,7 @@ def spider(S=SPIDER_SCALE, coin_cell=True):
     fr = max(1.3 * S, 0.8)
     for sy in (-1, 1):
         parts.append(capsule((head_front - 4 * max(S, 0.6), sy * max(5 * S, 2.2), max(8 * S, 3.5)),
-                             (head_front + 2.5 * max(S, 0.5), sy * max(3.5 * S, 1.8), fr), max(2.6 * S, 1.2), fr))
+                             (head_front + 2.5 * max(S, 0.5), sy * max(3.5 * S, 1.8), fr - 0.4), max(2.6 * S, 1.2), fr))
     # legs, flat on the bed: hip, knee, tip (never thinner than 2 mm)
     lr = lambda r: max(r * S, 1.0)
     for sy in (-1, 1):
@@ -222,7 +222,9 @@ def spider(S=SPIDER_SCALE, coin_cell=True):
             knee = (hip[0] + 46 * S * math.cos(ar), hip[1] + sy * 46 * S * math.sin(ar))
             tip = (knee[0] + 50 * S * math.cos(br), knee[1] + sy * 50 * S * math.sin(br))
             r0, r1, r2 = lr(4.0), lr(3.6), lr(1.8)
-            parts += [capsule((*hip, r0), (*knee, r1), r0, r1), capsule((*knee, r1), (*tip, r2), r1, r2), ball((*knee, r1), r1 * 1.15)]
+            # sunk 0.5 mm into the bed so every leg has a flat foot strip at least 1.7 mm wide
+            z0, z1, z2 = r0 - 0.5, r1 - 0.5, r2 - 0.5
+            parts += [capsule((*hip, z0), (*knee, z1), r0, r1), capsule((*knee, z1), (*tip, z2), r1, r2), ball((*knee, z1), r1 * 1.15)]
     body = union(parts)
     body = body - box(-300, 300, -300, 300, -50, 0)          # flat bottom
     # coin cell under the abdomen: a recess for the lid, the cell pocket above it
@@ -255,12 +257,12 @@ def spider(S=SPIDER_SCALE, coin_cell=True):
     if coin_cell:
         cut.append(cyl(LID_D / 2 + 0.2, LID_T + 1).translate((px, 0, -1)))
         # 45° step from the lid recess to the cell pocket, so it isn't a flat ledge hanging in the air
-        cut.append(cyl(LID_D / 2 + 0.2, (LID_D - CELL_D) / 2, CELL_D / 2 + 0.4).translate((px, 0, LID_T - 0.01)))
-        cut.append(cyl(CELL_D / 2 + 0.4, cell_top - LID_T + 0.01).translate((px, 0, LID_T - 0.01)))
+        cut.append(cyl(LID_D / 2 + 0.2, (LID_D - CELL_D) / 2, CELL_D / 2 + 0.3).translate((px, 0, LID_T - 0.01)))
+        cut.append(cyl(CELL_D / 2 + 0.3, cell_top - LID_T + 0.01).translate((px, 0, LID_T - 0.01)))
         cut.append(cyl(1.0, cz).translate((px, 0, cell_top - 0.5)))            # wire from the top contact
         cut.append(cyl(0.9, cz + 1).translate((px + CELL_D / 2 + 1.3, 0, -0.5)))  # wire from the lid contact
         for sy in (-1, 1):
-            cut.append(cyl(0.8, 7).translate((px, sy * LID_SCREW_R, LID_T - 0.5)))  # M2 pilot holes
+            cut.append(cyl(0.75, 9).translate((px, sy * LID_SCREW_R, LID_T - 0.5)))  # M2 pilot holes
     # 3 mm LED eyes: snug 3.1 mm holes, a recess for the 3.8 mm rim
     ey, ez = max(6 * S, 2.7), hc[2] + 0.35 * hr[2]
     eyes = []
@@ -280,7 +282,7 @@ def spider(S=SPIDER_SCALE, coin_cell=True):
 def lid():
     l = cyl(LID_D / 2 - 0.2, LID_T)
     for sy in (-1, 1):
-        l = l - cyl(1.15, 5).translate((0, sy * LID_SCREW_R, -1)) - cyl(1.15, 1.21, 2.2).translate((0, sy * LID_SCREW_R, 0.8))
+        l = l - cyl(1.1, 5).translate((0, sy * LID_SCREW_R, -1))   # plain holes for M2 pan-head screws, clear of the edge
     l = l - box(LID_D / 2 - 2.5, LID_D / 2 + 1, -3, 3, 1.0, 5)   # thumbnail notch
     return l
 
