@@ -58,6 +58,17 @@ def capsule(a, b, ra, rb):
     return Manifold.batch_hull([ball(a, ra), ball(b, rb)])
 
 
+def skirt(c, r):
+    """A thin disk on the bed under a ball or ellipsoid at c with radii r, sized so the
+    hull of the two slopes down at 45° from the widest point: no overhang to print."""
+    rx, ry = (r, r) if not isinstance(r, tuple) else r[:2]
+    return cyl(1, 0.01).scale((max(rx - c[2], 0.3), max(ry - c[2], 0.3), 1)).translate((c[0], c[1], 0))
+
+
+def grounded(m, *skirts):
+    return Manifold.batch_hull([m, *skirts])
+
+
 def save(m, name):
     m = m.translate((0, 0, -m.bounding_box()[2]))      # sit on the bed
     mesh = m.to_mesh()
@@ -202,11 +213,13 @@ def spider(S=SPIDER_SCALE, coin_cell=True):
     hr = tuple(max(r * S, m) for r, m in zip((19, 17, 14), (9.0, 8.0, 7.0)))
     hc = (14 * S, 0, max(10 * S, hr[2] * 0.45))
     head_front = hc[0] + hr[0]
-    ab = ellipsoid(sc((-30, 0, 0)), sc((34, 26, 24))).translate((0, 0, 13 * S))
-    ce = ellipsoid(hc, hr)
+    abc, abr = (-30 * S, 0, 13 * S), sc((34, 26, 24))
+    ab = grounded(ellipsoid(abc, abr), skirt(abc, abr))
+    ce = grounded(ellipsoid(hc, hr), skirt(hc, hr))
     wr = max(9 * S, 3.5)
-    waist = Manifold.batch_hull([ball(sc((-6, 0, 0)), wr).translate((0, 0, max(10 * S, wr * 0.8))),
-                                 ball(sc((4, 0, 0)), wr).translate((0, 0, max(10 * S, wr * 0.8)))])
+    wz = max(10 * S, wr * 0.8)
+    waist = Manifold.batch_hull([ball((-6 * S, 0, wz), wr), ball((4 * S, 0, wz), wr),
+                                 skirt((-6 * S, 0, wz), wr), skirt((4 * S, 0, wz), wr)])
     parts = [ab, ce, waist]
     # fangs, tips on the bed
     fr = max(1.3 * S, 0.8)
@@ -224,7 +237,9 @@ def spider(S=SPIDER_SCALE, coin_cell=True):
             r0, r1, r2 = lr(4.0), lr(3.6), lr(1.8)
             # sunk 0.5 mm into the bed so every leg has a flat foot strip at least 1.7 mm wide
             z0, z1, z2 = r0 - 0.5, r1 - 0.5, r2 - 0.5
-            parts += [capsule((*hip, z0), (*knee, z1), r0, r1), capsule((*knee, z1), (*tip, z2), r1, r2), ball((*knee, z1), r1 * 1.15)]
+            parts += [grounded(capsule((*hip, z0), (*knee, z1), r0, r1), skirt((*hip, z0), r0), skirt((*knee, z1), r1)),
+                      grounded(capsule((*knee, z1), (*tip, z2), r1, r2), skirt((*knee, z1), r1), skirt((*tip, z2), r2)),
+                      grounded(ball((*knee, z1), r1 * 1.15), skirt((*knee, z1), r1 * 1.15))]
     body = union(parts)
     body = body - box(-300, 300, -300, 300, -50, 0)          # flat bottom
     # coin cell under the abdomen: a recess for the lid, the cell pocket above it
