@@ -283,7 +283,7 @@ def lid():
     l = cyl(LID_D / 2 - 0.2, LID_T)
     for sy in (-1, 1):
         l = l - cyl(1.1, 5).translate((0, sy * LID_SCREW_R, -1))   # plain holes for M2 pan-head screws, clear of the edge
-    l = l - box(LID_D / 2 - 2.5, LID_D / 2 + 1, -3, 3, 1.0, 5)   # thumbnail notch
+    # no thumbnail notch: its 1 mm ledge made Bambu warn; lever the lid off with a screwdriver tip
     return l
 
 
