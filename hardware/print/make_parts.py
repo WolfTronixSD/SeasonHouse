@@ -77,6 +77,8 @@ def save(m, name):
 T = 6.0                      # front plate thickness
 ZC = -29.5                   # motor axis height under the ceiling
 ARM_Z = (-61.0, -56.0)       # guide arm
+SW_TAB_X = 21.0             # microswitch tab; a 6.4 mm switch on its face puts the lever under the line
+SW_Y = 6.0                   # middle of the switch body (20 mm long, y -4..16)
 SPOOL_GAP = 1.5              # spool face to front plate
 LINE_X = HUB_D / 2           # the line leaves the spool on this side
 SPOOL_LEN = 1.6 + 10.0 + (FLANGE_D - HUB_D) / 2 + 6.6
@@ -87,7 +89,9 @@ def bracket():
     front = box(-30, 30, -T, 0, ARM_Z[0], 0)
     top = box(-42, 42, -T, 40, -5, 0)
     arm = box(-30, 48, -T, 32, ARM_Z[0], ARM_Z[1])
-    tab = box(20, 46, LINE_Y + 4, LINE_Y + 8, -88, ARM_Z[0] + 0.01)   # switch body sits in front, lever under the line
+    # switch tab, standing on the bed like the plates; the switch sits on its
+    # left face with the lever reaching forward under the line hole
+    tab = box(SW_TAB_X, SW_TAB_X + 4, -T, LINE_Y - 0.5, -86, ARM_Z[0] + 0.01)
     parts = [front, top, arm, tab]
     for x0 in (-30, 26):     # gussets, outside the spool's reach
         for tri in ([(0, -21), (16, -5), (0, -5)], [(0, ARM_Z[1]), (16, ARM_Z[1]), (0, ARM_Z[1] + 16)]):
@@ -110,10 +114,9 @@ def bracket():
         for y in (8, 32):
             holes.append(cyl(2.3, 10).translate((x, y, -8)))
             holes.append(cyl(4.6, 2.4, 2.3).translate((x, y, -5.01)))
-    # microswitch slots (M2 or 2.2 mm screws, 9.5 mm apart), 12 mm of height adjustment
-    for x in (33 - 4.75, 33 + 4.75):
-        slot = Manifold.batch_hull([along_y(cyl(1.2, 10)).translate((x, LINE_Y, z)) for z in (-66, -79)])
-        holes.append(slot)
+    # microswitch slots (M2 screws, 9.5 mm apart), 12 mm of height adjustment
+    for y in (SW_Y - 4.75, SW_Y + 4.75):
+        holes.append(Manifold.batch_hull([along_x(cyl(1.2, 10)).translate((SW_TAB_X - 3, y, z)) for z in (-66, -79)]))
     b = b - union(holes)
     return b.rotate((90, 0, 0))   # print lying on the front plate's back face
 
