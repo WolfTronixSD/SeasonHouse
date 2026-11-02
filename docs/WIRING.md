@@ -12,12 +12,12 @@ The spider lives in a ceiling corner on a fishing-line winch. A NEMA17 stepper w
 | 0.3 mm black fishing line (≈10 kg) | Invisible in the dark |
 | Lever microswitch | Top "home" switch |
 | HC-SR501 PIR | Or an LD2410 mmWave sensor (same OUT pin) |
-| 2× red 5 mm LEDs + 2× 100 Ω | The eyes |
+| 2× red 3 or 5 mm LEDs + 2× 100 Ω | The eyes (the printed spider in [`hardware/print`](../hardware/print/README.md) takes 3 mm) |
 | Passive piezo + 100 Ω | Chittering clicks |
 | DFPlayer Mini + micro-SD + 3 W 4-8 Ω speaker | Sound |
 | 6-wire capsule slip ring (12.5 mm) | Gets power to the eyes through the turning spool (see below) |
 | 12 V 2 A supply + LM2596 buck to 5 V | One supply for everything except WLED |
-| Foam/plush spider under ~250 g | Lighter = faster, quieter drop |
+| Foam/plush spider under ~250 g | Lighter = faster, quieter drop. Or print one, with the bracket and spool: [`hardware/print`](../hardware/print/README.md) |
 
 ## Wiring
 
