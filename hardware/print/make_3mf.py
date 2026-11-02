@@ -19,7 +19,7 @@ COMMON = dict(layer_height="0.2", enable_support="0")
 
 
 def mesh_xml(m):
-    v = "".join(f'<vertex x="{a:.4f}" y="{b:.4f}" z="{c:.4f}"/>' for a, b, c in m.vertices)
+    v = "".join(f'<vertex x="{a:.5f}" y="{b:.5f}" z="{c:.5f}"/>' for a, b, c in m.vertices)
     t = "".join(f'<triangle v1="{a}" v2="{b}" v3="{c}"/>' for a, b, c in m.faces)
     return f"<mesh><vertices>{v}</vertices><triangles>{t}</triangles></mesh>"
 
@@ -29,6 +29,8 @@ def main(out=os.path.join(HERE, "seasonhouse_spider.3mf")):
     for i, (name, (cx, cy, s)) in enumerate(PARTS.items()):
         oid, pid = 2 * i + 2, 2 * i + 1
         m = trimesh.load(os.path.join(HERE, name + ".stl"), process=False)
+        m.merge_vertices(digits_vertex=5)   # an STL is loose triangles; a 3mf mesh must share its vertices
+        assert m.is_watertight and m.is_winding_consistent, name
         lo, hi = m.bounds
         m.apply_translation([-(lo[0] + hi[0]) / 2, -(lo[1] + hi[1]) / 2, -lo[2]])
         assert hi[0] - lo[0] < BED and hi[1] - lo[1] < BED
